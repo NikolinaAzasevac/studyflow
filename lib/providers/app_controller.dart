@@ -383,12 +383,13 @@ class AppController extends ChangeNotifier {
 
   List<int> weeklySeries() {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final startOfWeek =
+        DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
     final counts = List<int>.filled(7, 0);
     for (final dateStr in _activityDates) {
       final date = DateTime.parse(dateStr);
       final normalized = DateTime(date.year, date.month, date.day);
-      final index = normalized.difference(start).inDays;
+      final index = normalized.difference(startOfWeek).inDays;
       if (index >= 0 && index < 7) counts[index] += 1;
     }
     if (counts.every((v) => v == 0)) {
