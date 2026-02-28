@@ -6,18 +6,29 @@ class ProgressCard extends StatelessWidget {
     required this.title,
     required this.progress,
     required this.subtitle,
+    this.emphasize = false,
+    this.trailing,
   });
 
   final String title;
   final double progress;
   final String subtitle;
+  final bool emphasize;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    final titleStyle = emphasize
+        ? Theme.of(context).textTheme.titleLarge
+        : Theme.of(context).textTheme.titleMedium;
+    final subtitleStyle = emphasize
+        ? Theme.of(context).textTheme.bodyMedium
+        : Theme.of(context).textTheme.labelMedium;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(emphasize ? 20 : 16),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(18),
@@ -32,19 +43,36 @@ class ProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: titleStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          SizedBox(height: emphasize ? 16 : 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 10,
+              minHeight: emphasize ? 12 : 10,
               color: scheme.tertiary,
               backgroundColor: scheme.tertiary.withOpacity(0.2),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(subtitle, style: Theme.of(context).textTheme.labelMedium),
+          SizedBox(height: emphasize ? 10 : 8),
+          Text(
+            subtitle,
+            style: subtitleStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );

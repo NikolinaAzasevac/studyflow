@@ -1,41 +1,37 @@
 import 'package:flutter/material.dart';
 
-import '../models/subject_model.dart';
+import '../models/goal_model.dart';
 
-class SubjectCard extends StatelessWidget {
-  const SubjectCard({
+class GoalListCard extends StatelessWidget {
+  const GoalListCard({
     super.key,
-    required this.subject,
-    required this.onTap,
+    required this.goal,
+    required this.progress,
     required this.progressLabel,
-    required this.completedTasks,
-    required this.totalTasks,
+    required this.onTap,
   });
 
-  final SubjectModel subject;
-  final VoidCallback onTap;
+  final GoalModel goal;
+  final double progress;
   final String progressLabel;
-  final int completedTasks;
-  final int totalTasks;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Ink(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           color: scheme.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -43,53 +39,57 @@ class SubjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               child: SizedBox(
-                height: 120,
+                height: 80,
                 width: double.infinity,
-                child: subject.coverUrl == null
+                child: goal.coverUrl == null
                     ? Container(
                         color: scheme.primary.withOpacity(0.1),
                         child: Icon(
-                          Icons.auto_awesome,
-                          size: 42,
+                          Icons.flag,
+                          size: 40,
                           color: scheme.primary,
                         ),
                       )
-                    : Image.network(subject.coverUrl!, fit: BoxFit.cover),
+                    : Image.network(goal.coverUrl!, fit: BoxFit.cover),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    subject.title,
+                    goal.displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subject.description,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
+                  if (goal.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      goal.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: 8,
+                      minHeight: 6,
                       color: scheme.tertiary,
                       backgroundColor: scheme.tertiary.withOpacity(0.2),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    '$completedTasks/$totalTasks $progressLabel',
+                    progressLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ],

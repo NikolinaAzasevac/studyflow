@@ -1,63 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/subject_model.dart';
+import '../models/goal_model.dart';
 import '../providers/app_controller.dart';
-import '../providers/subject_controller.dart';
+import '../providers/goal_controller.dart';
 import '../widgets/primary_button.dart';
 
-class AddEditSubjectScreen extends StatefulWidget {
-  const AddEditSubjectScreen({super.key, this.subject});
+class AddEditGoalScreen extends StatefulWidget {
+  const AddEditGoalScreen({super.key, this.goal});
 
-  final SubjectModel? subject;
+  final GoalModel? goal;
 
   @override
-  State<AddEditSubjectScreen> createState() => _AddEditSubjectScreenState();
+  State<AddEditGoalScreen> createState() => _AddEditGoalScreenState();
 }
 
-class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
+class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
+  final _areaController = TextEditingController();
+  final _typeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _searchController = TextEditingController();
-
+  DateTime? _targetDate;
   String? _selectedCoverUrl;
 
   @override
   void initState() {
     super.initState();
-    if (widget.subject != null) {
-      _titleController.text = widget.subject!.title;
-      _descriptionController.text = widget.subject!.description;
-      _selectedCoverUrl = widget.subject!.coverUrl;
+    if (widget.goal != null) {
+      _areaController.text = widget.goal!.area;
+      _typeController.text = widget.goal!.type;
+      _descriptionController.text = widget.goal!.description;
+      _targetDate = widget.goal!.targetDate;
+      _selectedCoverUrl = widget.goal!.coverUrl;
     }
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
+    _areaController.dispose();
+    _typeController.dispose();
     _descriptionController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _targetDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 3)),
+    );
+    if (date != null) {
+      setState(() => _targetDate = date);
+    }
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final subjectController = context.read<SubjectController>();
+    if (_targetDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.read<AppController>().t('pickDate'))),
+      );
+      return;
+    }
+    final goalController = context.read<GoalController>();
 
-    final subject = SubjectModel(
-      id: widget.subject?.id ?? '',
-      title: _titleController.text.trim(),
+    final goal = GoalModel(
+      id: widget.goal?.id ?? '',
+      area: _areaController.text.trim(),
+      type: _typeController.text.trim(),
       description: _descriptionController.text.trim(),
       coverUrl: _selectedCoverUrl,
-      totalTasks: widget.subject?.totalTasks ?? 0,
-      completedTasks: widget.subject?.completedTasks ?? 0,
+      targetDate: _targetDate!,
     );
 
-    if (widget.subject == null) {
-      subjectController.addSubject(subject);
+    if (widget.goal == null) {
+      goalController.addGoal(goal);
     } else {
-      subjectController.updateSubject(subject);
+      goalController.updateGoal(goal);
     }
 
     Navigator.of(context).pop();
@@ -66,14 +89,14 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
   @override
   Widget build(BuildContext context) {
     final appController = context.watch<AppController>();
-    final subjectController = context.watch<SubjectController>();
+    final goalController = context.watch<GoalController>();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.subject == null
-              ? appController.t('addSubject')
-              : appController.t('editSubject'),
+          widget.goal == null
+              ? appController.t('addGoal')
+              : appController.t('editGoal'),
         ),
       ),
       body: SingleChildScrollView(
@@ -86,16 +109,32 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
               child: Column(
                 children: [
                   TextFormField(
-                    controller: _titleController,
+                    controller: _areaController,
                     decoration: InputDecoration(
-                      labelText: appController.t('subjectTitle'),
+                      labelText: appController.t('goalArea'),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Title is required.';
+                        return appController.t('fieldRequired');
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _typeController,
+                    decoration: InputDecoration(
+                      labelText: appController.t('goalType'),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return appController.t('fieldRequired');
                       }
                       return null;
                     },
@@ -104,18 +143,22 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
                   TextFormField(
                     controller: _descriptionController,
                     decoration: InputDecoration(
-                      labelText: appController.t('subjectDescription'),
+                      labelText: appController.t('goalDescription'),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Description is required.';
-                      }
-                      return null;
-                    },
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(
+                      _targetDate == null
+                          ? appController.t('goalDate')
+                          : '${_targetDate!.day}/${_targetDate!.month}/${_targetDate!.year}',
+                    ),
                   ),
                 ],
               ),
@@ -143,7 +186,7 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
                 IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () {
-                    subjectController.searchUnsplash(
+                    goalController.searchUnsplash(
                       _searchController.text.trim(),
                     );
                   },
@@ -151,13 +194,14 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (subjectController.searchResults.isEmpty)
+            if (goalController.searchResults.isEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.6),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceVariant
+                      .withOpacity(0.6),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(appController.t('searchPrompt')),
@@ -171,9 +215,9 @@ class _AddEditSubjectScreenState extends State<AddEditSubjectScreen> {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                itemCount: subjectController.searchResults.length,
+                itemCount: goalController.searchResults.length,
                 itemBuilder: (context, index) {
-                  final image = subjectController.searchResults[index];
+                  final image = goalController.searchResults[index];
                   final isSelected = image.fullUrl == _selectedCoverUrl;
                   return GestureDetector(
                     onTap: () {

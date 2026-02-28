@@ -2,44 +2,60 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/app_controller.dart';
-import 'providers/subject_controller.dart';
+import 'providers/goal_controller.dart';
 import 'providers/task_controller.dart';
-import 'repositories/mock_subject_repository.dart';
 import 'repositories/mock_task_repository.dart';
-import 'repositories/subject_repository.dart';
+import 'repositories/mock_goal_repository.dart';
+import 'repositories/goal_repository.dart';
 import 'repositories/task_repository.dart';
 import 'services/unsplash_service.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/progress_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/tasks_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
+import 'screens/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final subjectRepository = MockSubjectRepository();
-  final subjects = await subjectRepository.fetchAll();
+  final goalRepository = MockGoalRepository();
+  final goals = await goalRepository.fetchAll();
   final taskRepository = MockTaskRepository();
-  taskRepository.seedForSubjects(subjects);
+  taskRepository.seedForGoals(goals);
 
   runApp(
     StudyFlowApp(
-      subjectRepository: subjectRepository,
       taskRepository: taskRepository,
+      goalRepository: goalRepository,
     ),
   );
 }
 
-class StudyFlowApp extends StatelessWidget {
+class StudyFlowApp extends StatefulWidget {
   const StudyFlowApp({
     super.key,
-    required this.subjectRepository,
     required this.taskRepository,
+    required this.goalRepository,
   });
 
-  final SubjectRepository subjectRepository;
   final TaskRepository taskRepository;
+  final GoalRepository goalRepository;
+
+  @override
+  State<StudyFlowApp> createState() => _StudyFlowAppState();
+}
+
+class _StudyFlowAppState extends State<StudyFlowApp> {
+  late final AppController _appController;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _appController = AppController();
+    _appController.loadPreferences().then((_) {
+      if (!mounted) return;
+      setState(() => _ready = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,14 +72,28 @@ class StudyFlowApp extends StatelessWidget {
       tertiary: Colors.greenAccent,
     );
 
+    if (!_ready) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(useMaterial3: true, colorScheme: colorScheme),
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AppController()),
+        ChangeNotifierProvider.value(value: _appController),
         ChangeNotifierProvider(
-          create: (_) =>
-              SubjectController(subjectRepository, UnsplashService()),
+          create: (_) => TaskController(
+            widget.taskRepository,
+            onTaskCompleted: _appController.recordActivity,
+          ),
         ),
-        ChangeNotifierProvider(create: (_) => TaskController(taskRepository)),
+        ChangeNotifierProvider(
+          create: (_) => GoalController(widget.goalRepository, UnsplashService()),
+        ),
       ],
       child: Consumer<AppController>(
         builder: (context, appController, _) {
@@ -82,7 +112,7 @@ class StudyFlowApp extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              inputDecorationTheme: InputDecorationTheme(
+              inputDecorationTheme: const InputDecorationTheme(
                 filled: true,
                 fillColor: Colors.white,
               ),
@@ -96,58 +126,13 @@ class StudyFlowApp extends StatelessWidget {
                 fillColor: Color(0xFF1C1C22),
               ),
             ),
-            home: appController.isAuthenticated
-                ? const AppShell()
-                : const LoginScreen(),
+            home: appController.hasSeenOnboarding
+                ? (appController.isAuthenticated
+                    ? const AppShell()
+                    : const LoginScreen())
+                : const OnboardingScreen(),
           );
         },
-      ),
-    );
-  }
-}
-
-class AppShell extends StatelessWidget {
-  const AppShell({super.key});
-
-  static const _screens = [
-    HomeScreen(),
-    TasksScreen(),
-    ProgressScreen(),
-    ProfileScreen(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final appController = context.watch<AppController>();
-
-    return Scaffold(
-      body: IndexedStack(index: appController.currentIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: appController.currentIndex,
-        onTap: appController.setTab,
-        type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.home_outlined),
-            activeIcon: const Icon(Icons.home),
-            label: appController.t('home'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.check_circle_outline),
-            activeIcon: const Icon(Icons.check_circle),
-            label: appController.t('tasks'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.show_chart),
-            activeIcon: const Icon(Icons.show_chart),
-            label: appController.t('progress'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.person_outline),
-            activeIcon: const Icon(Icons.person),
-            label: appController.t('profile'),
-          ),
-        ],
       ),
     );
   }

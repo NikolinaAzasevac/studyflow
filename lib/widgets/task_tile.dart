@@ -6,13 +6,13 @@ class TaskTile extends StatelessWidget {
   const TaskTile({
     super.key,
     required this.task,
-    required this.subjectName,
+    required this.goalName,
     required this.onToggle,
     required this.onTap,
   });
 
   final TaskModel task;
-  final String subjectName;
+  final String goalName;
   final VoidCallback onToggle;
   final VoidCallback onTap;
 
@@ -46,12 +46,20 @@ class TaskTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         leading: Checkbox(value: task.isDone, onChanged: (_) => onToggle()),
-        title: Text(task.title),
+        title: Text(
+          task.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text(subjectName),
+            Text(
+              goalName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -75,9 +83,13 @@ class TaskTile extends StatelessWidget {
                 ),
                 if (task.dueDate != null) ...[
                   const SizedBox(width: 12),
-                  Text(
-                    '${task.dueDate!.day}/${task.dueDate!.month}/${task.dueDate!.year}',
-                    style: Theme.of(context).textTheme.labelSmall,
+                  Flexible(
+                    child: Text(
+                      '${task.dueDate!.day}/${task.dueDate!.month}/${task.dueDate!.year}',
+                      style: Theme.of(context).textTheme.labelSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ],

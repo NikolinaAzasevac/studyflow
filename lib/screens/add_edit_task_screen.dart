@@ -3,14 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../models/task_model.dart';
 import '../providers/app_controller.dart';
-import '../providers/subject_controller.dart';
+import '../providers/goal_controller.dart';
 import '../providers/task_controller.dart';
 import '../widgets/primary_button.dart';
 
 class AddEditTaskScreen extends StatefulWidget {
-  const AddEditTaskScreen({super.key, this.task});
+  const AddEditTaskScreen({super.key, this.task, this.goalId});
 
   final TaskModel? task;
+  final String? goalId;
 
   @override
   State<AddEditTaskScreen> createState() => _AddEditTaskScreenState();
@@ -20,7 +21,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _notesController = TextEditingController();
-  String? _subjectId;
+  String? _goalId;
   DateTime? _dueDate;
   TaskPriority _priority = TaskPriority.medium;
 
@@ -30,9 +31,11 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     if (widget.task != null) {
       _titleController.text = widget.task!.title;
       _notesController.text = widget.task!.notes;
-      _subjectId = widget.task!.subjectId;
+      _goalId = widget.task!.goalId;
       _dueDate = widget.task!.dueDate;
       _priority = widget.task!.priority;
+    } else {
+      _goalId = widget.goalId;
     }
   }
 
@@ -60,23 +63,25 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final subjectId = _subjectId;
-    if (subjectId == null) {
+    final goalId = _goalId;
+    if (goalId == null) {
       final appController = context.read<AppController>();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appController.t('selectSubjectFirst'))),
+        SnackBar(content: Text(appController.t('selectGoalFirst'))),
       );
       return;
     }
 
     final task = TaskModel(
       id: widget.task?.id ?? '',
-      subjectId: subjectId,
+      goalId: goalId,
       title: _titleController.text.trim(),
       notes: _notesController.text.trim(),
       dueDate: _dueDate,
       isDone: widget.task?.isDone ?? false,
       priority: _priority,
+      createdAt: widget.task?.createdAt ?? DateTime.now(),
+      subtasks: widget.task?.subtasks ?? const [],
     );
 
     final controller = context.read<TaskController>();
@@ -92,7 +97,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   @override
   Widget build(BuildContext context) {
     final appController = context.watch<AppController>();
-    final subjectController = context.watch<SubjectController>();
+    final goalController = context.watch<GoalController>();
 
     return Scaffold(
       appBar: AppBar(
@@ -136,25 +141,25 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _subjectId,
+                value: _goalId,
                 decoration: InputDecoration(
-                  labelText: appController.t('subjects'),
+                  labelText: appController.t('goals'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                items: subjectController.subjects
+                items: goalController.goals
                     .map(
-                      (subject) => DropdownMenuItem(
-                        value: subject.id,
-                        child: Text(subject.title),
+                      (goal) => DropdownMenuItem(
+                        value: goal.id,
+                        child: Text(goal.displayTitle),
                       ),
                     )
                     .toList(),
-                onChanged: (value) => setState(() => _subjectId = value),
+                onChanged: (value) => setState(() => _goalId = value),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return appController.t('selectSubject');
+                    return appController.t('selectGoal');
                   }
                   return null;
                 },
