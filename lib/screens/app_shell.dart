@@ -6,6 +6,7 @@ import '../widgets/bottom_nav_bar.dart';
 import 'add_edit_goal_screen.dart';
 import 'add_edit_task_screen.dart';
 import 'home_screen.dart';
+import 'notifications_screen.dart';
 import 'progress_screen.dart';
 import 'profile_screen.dart';
 import 'tasks_screen.dart';
@@ -17,6 +18,7 @@ class AppShell extends StatelessWidget {
     HomeScreen(),
     TasksScreen(),
     ProgressScreen(),
+    NotificationsScreen(),
     ProfileScreen(),
   ];
 
@@ -26,7 +28,11 @@ class AppShell extends StatelessWidget {
 
     return Scaffold(
       body: IndexedStack(index: appController.currentIndex, children: _screens),
-      floatingActionButton: _buildFab(context, appController.currentIndex),
+      floatingActionButton: _buildFab(
+        context,
+        appController.currentIndex,
+        appController,
+      ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: appController.currentIndex,
         onTap: appController.setTab,
@@ -34,31 +40,38 @@ class AppShell extends StatelessWidget {
           appController.t('home'),
           appController.t('tasks'),
           appController.t('progress'),
+          appController.t('notifications'),
           appController.t('profile'),
         ],
         icons: const [
           Icons.home_rounded,
           Icons.check_circle_rounded,
           Icons.show_chart_rounded,
+          Icons.notifications_rounded,
           Icons.person_rounded,
         ],
       ),
     );
   }
 
-  Widget? _buildFab(BuildContext context, int index) {
+  Widget? _buildFab(
+    BuildContext context,
+    int index,
+    AppController appController,
+  ) {
+    if (!appController.isAuthenticated) return null;
     VoidCallback? onPressed;
     if (index == 0) {
       onPressed = () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddEditGoalScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AddEditGoalScreen()));
       };
     } else if (index == 1) {
       onPressed = () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddEditTaskScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AddEditTaskScreen()));
       };
     }
 

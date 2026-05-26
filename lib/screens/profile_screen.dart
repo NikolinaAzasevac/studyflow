@@ -1,13 +1,34 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_controller.dart';
+import '../widgets/demo_notice_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/setting_toggle_tile.dart';
 import '../widgets/study_app_bar.dart';
+import 'admin/admin_screen.dart';
+import 'auth/login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+enum _AvatarSource { photoLibrary, camera, files }
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isUploadingAvatar = false;
+
+  bool get _supportsCamera {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
 
   Future<void> _editName(BuildContext context) async {
     final appController = context.read<AppController>();
@@ -32,7 +53,123 @@ class ProfileScreen extends StatelessWidget {
     );
 
     if (name != null && name.isNotEmpty) {
-      appController.updateUserName(name);
+      await appController.updateUserName(name);
+    }
+  }
+
+  Future<_AvatarSource?> _pickAvatarSource(BuildContext context) async {
+    final appController = context.read<AppController>();
+    return showModalBottomSheet<_AvatarSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(appController.t('photoLibrary')),
+                onTap: () =>
+                    Navigator.of(context).pop(_AvatarSource.photoLibrary),
+              ),
+              if (_supportsCamera)
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: Text(appController.t('camera')),
+                  onTap: () => Navigator.of(context).pop(_AvatarSource.camera),
+                ),
+              ListTile(
+                leading: const Icon(Icons.folder_open_outlined),
+                title: Text(appController.t('files')),
+                onTap: () => Navigator.of(context).pop(_AvatarSource.files),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<(Uint8List, String)?> _loadAvatarBytes(_AvatarSource source) async {
+    switch (source) {
+      case _AvatarSource.photoLibrary:
+        final image = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 88,
+          maxWidth: 1600,
+        );
+        if (image == null) return null;
+        return (await image.readAsBytes(), image.name);
+      case _AvatarSource.camera:
+        final image = await ImagePicker().pickImage(
+          source: ImageSource.camera,
+          imageQuality: 88,
+          maxWidth: 1600,
+        );
+        if (image == null) return null;
+        return (await image.readAsBytes(), image.name);
+      case _AvatarSource.files:
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return null;
+        final file = result.files.single;
+        final bytes = file.bytes;
+        if (bytes == null) return null;
+        return (bytes, file.name);
+    }
+  }
+
+  void _showSaveError(
+    ScaffoldMessengerState messenger,
+    AppController appController,
+    Object error,
+  ) {
+    final reason = error.toString().replaceFirst('Exception: ', '');
+    final template = appController.t('saveFailedWithReason');
+    final message = template.contains('{reason}')
+        ? template.replaceAll('{reason}', reason)
+        : '${appController.t('saveFailed')} ($reason)';
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), showCloseIcon: true),
+    );
+  }
+
+  Future<void> _changeAvatar(BuildContext context) async {
+    final appController = context.read<AppController>();
+    final messenger = ScaffoldMessenger.of(context);
+    if (!appController.isAuthenticated || _isUploadingAvatar) return;
+
+    final source = await _pickAvatarSource(context);
+    if (source == null || !mounted) return;
+
+    final selected = await _loadAvatarBytes(source);
+    if (selected == null || !mounted) return;
+
+    setState(() => _isUploadingAvatar = true);
+    try {
+      await appController.uploadUserAvatar(
+        bytes: selected.$1,
+        fileName: selected.$2,
+      );
+      if (!mounted) return;
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(appController.t('avatarUpdated')),
+          showCloseIcon: true,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showSaveError(messenger, appController, error);
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
     }
   }
 
@@ -46,6 +183,19 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (appController.isGuest) ...[
+            DemoNoticeCard(
+              title: appController.t('demoModeTitle'),
+              message: appController.t('demoModeMessage'),
+              actionLabel: appController.t('demoModeAction'),
+              onAction: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
           Row(
             children: [
               Stack(
@@ -53,26 +203,67 @@ class ProfileScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 34,
                     backgroundColor: appController.avatarColor,
-                    child: Text(
-                      user?.name.substring(0, 1).toUpperCase() ??
-                          appController.t('defaultUserName').substring(0, 1),
-                      style: const TextStyle(color: Colors.white, fontSize: 24),
-                    ),
+                    backgroundImage: user?.avatarUrl != null
+                        ? NetworkImage(user!.avatarUrl!)
+                        : null,
+                    child: user?.avatarUrl == null
+                        ? Text(
+                            user?.name.substring(0, 1).toUpperCase() ??
+                                appController.t('defaultUserName').substring(
+                                  0,
+                                  1,
+                                ),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
+                          )
+                        : null,
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child: InkWell(
-                      onTap: appController.cycleAvatarColor,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
-                      ),
-                    ),
+                    child: appController.isAuthenticated
+                        ? InkWell(
+                            onTap: _isUploadingAvatar
+                                ? null
+                                : () => _changeAvatar(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: _isUploadingAvatar
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.camera_alt,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.lock_outline,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -93,7 +284,9 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _editName(context),
+                          onPressed: appController.isAuthenticated
+                              ? () => _editName(context)
+                              : null,
                         ),
                       ],
                     ),
@@ -118,12 +311,6 @@ class ProfileScreen extends StatelessWidget {
             onChanged: (value) => appController.toggleThemeMode(value),
           ),
           const SizedBox(height: 12),
-          SettingToggleTile(
-            title: appController.t('notifications'),
-            value: appController.notificationsEnabled,
-            onChanged: appController.setNotificationsEnabled,
-          ),
-          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -131,7 +318,7 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),
@@ -157,8 +344,9 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Card(
             elevation: 0,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -181,33 +369,46 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          if (appController.isAdmin) ...[
+            PrimaryButton(
+              label: appController.t('adminPanel'),
+              icon: Icons.admin_panel_settings,
+              onPressed: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const AdminScreen()));
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (!appController.isAuthenticated) ...[
+            PrimaryButton(
+              label: appController.t('login'),
+              icon: Icons.login,
+              onPressed: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
           if (appController.isAuthenticated)
             PrimaryButton(
               label: appController.t('logout'),
               icon: Icons.logout,
-              onPressed: appController.logout,
+              onPressed: () async {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                await appController.logout();
+                if (!context.mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
             ),
         ],
       ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.labelMedium),
     );
   }
 }

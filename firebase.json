@@ -1,0 +1,53 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    }
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "studyflow-mit-2026-df982",
+          "appId": "1:1023070192441:android:0bc42aca1284c46f549ee8",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "studyflow-mit-2026-df982",
+          "appId": "1:1023070192441:ios:e2eaae4ad1e8a8b7549ee8",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "studyflow-mit-2026-df982",
+          "appId": "1:1023070192441:ios:e2eaae4ad1e8a8b7549ee8",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "studyflow-mit-2026-df982",
+          "configurations": {
+            "android": "1:1023070192441:android:0bc42aca1284c46f549ee8",
+            "ios": "1:1023070192441:ios:e2eaae4ad1e8a8b7549ee8",
+            "macos": "1:1023070192441:ios:e2eaae4ad1e8a8b7549ee8",
+            "web": "1:1023070192441:web:0518a3f4e8c59074549ee8",
+            "windows": "1:1023070192441:web:69b123f4676b4197549ee8"
+          }
+        }
+      }
+    }
+  }
+}

@@ -10,6 +10,8 @@ import '../widgets/stat_tile.dart';
 import '../widgets/study_app_bar.dart';
 import '../widgets/weekly_chart.dart';
 import '../widgets/goal_progress_chip.dart';
+import '../widgets/demo_notice_card.dart';
+import 'auth/login_screen.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -56,22 +58,24 @@ class ProgressScreen extends StatelessWidget {
     final taskController = context.watch<TaskController>();
 
     final totalTasks = taskController.tasks.length;
-    final completedTasks =
-        taskController.tasks.where((task) => task.isDone).length;
-    final overallProgress =
-        totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
+    final completedTasks = taskController.tasks
+        .where((task) => task.isDone)
+        .length;
+    final overallProgress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
     final streak = appController.streakDays();
     final trend = appController.weeklyTrend();
     final thisWeek = trend['thisWeek'] ?? 0;
     final lastWeek = trend['lastWeek'] ?? 0;
-    final trendLabel =
-        thisWeek >= lastWeek ? appController.t('trendUp') : appController.t('trendDown');
+    final trendLabel = thisWeek >= lastWeek
+        ? appController.t('trendUp')
+        : appController.t('trendDown');
     final weeklySeries = appController.weeklySeries();
     final activeGoal = goalController.activeGoal;
     String? goalCountdown;
     if (activeGoal != null) {
       final now = DateTime.now();
-      goalCountdown = '${activeGoal.targetDate.difference(DateTime(now.year, now.month, now.day)).inDays} ${appController.t('daysLeft')}';
+      goalCountdown =
+          '${activeGoal.targetDate.difference(DateTime(now.year, now.month, now.day)).inDays} ${appController.t('daysLeft')}';
     }
 
     return Scaffold(
@@ -79,6 +83,19 @@ class ProgressScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (appController.isGuest) ...[
+            DemoNoticeCard(
+              title: appController.t('demoModeTitle'),
+              message: appController.t('demoModeMessage'),
+              actionLabel: appController.t('demoModeAction'),
+              onAction: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
           Text(
             appController.t('progressOverview'),
             style: Theme.of(context).textTheme.titleLarge,
@@ -114,10 +131,9 @@ class ProgressScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       trendLabel,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -158,8 +174,9 @@ class ProgressScreen extends StatelessWidget {
           ...goalController.goals.map((goal) {
             final goalTasks = taskController.tasksForGoal(goal.id);
             final completed = goalTasks.where((task) => task.isDone).length;
-            final progress =
-                goalTasks.isEmpty ? 0.0 : completed / goalTasks.length;
+            final progress = goalTasks.isEmpty
+                ? 0.0
+                : completed / goalTasks.length;
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: ProgressCard(
@@ -173,27 +190,30 @@ class ProgressScreen extends StatelessWidget {
               ),
             );
           }),
-          const SizedBox(height: 12),
-          Card(
-            elevation: 0,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ListTile(
-              leading: Icon(
-                Icons.restart_alt,
-                color: Theme.of(context).colorScheme.error,
+          if (appController.isAuthenticated) ...[
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              title: Text(appController.t('resetProgress')),
-              subtitle: Text(appController.t('resetProgressConfirmShort')),
-              trailing: TextButton(
-                onPressed: () => _resetProgress(context),
-                style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.error,
+              child: ListTile(
+                leading: Icon(
+                  Icons.restart_alt,
+                  color: Theme.of(context).colorScheme.error,
                 ),
-                child: Text(appController.t('reset')),
+                title: Text(appController.t('resetProgress')),
+                subtitle: Text(appController.t('resetProgressConfirmShort')),
+                trailing: TextButton(
+                  onPressed: () => _resetProgress(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: Text(appController.t('reset')),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

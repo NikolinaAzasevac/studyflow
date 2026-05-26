@@ -10,8 +10,10 @@ import '../widgets/goal_list_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/study_app_bar.dart';
+import '../widgets/demo_notice_card.dart';
 import 'add_edit_goal_screen.dart';
 import 'goal_details_screen.dart';
+import 'auth/login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,22 +37,37 @@ class HomeScreen extends StatelessWidget {
       return due.isBefore(DateTime.now());
     }).toList();
 
-    final nextTask = taskController.tasks
-        .where((task) => task.dueDate != null && !task.isDone)
-        .toList()
-      ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+    final nextTask =
+        taskController.tasks
+            .where((task) => task.dueDate != null && !task.isDone)
+            .toList()
+          ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
     final nextUp = nextTask.isEmpty ? null : nextTask.first;
     final activeGoal = goalController.activeGoal;
 
     return Scaffold(
-      appBar: StudyAppBar(
-        title: appController.t('home'),
-      ),
+      appBar: StudyAppBar(title: appController.t('home')),
       body: RefreshIndicator(
-        onRefresh: goalController.loadGoals,
+        onRefresh: () async {
+          await goalController.loadGoals();
+          await taskController.loadTasks();
+        },
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (appController.isGuest) ...[
+              DemoNoticeCard(
+                title: appController.t('demoModeTitle'),
+                message: appController.t('demoModeMessage'),
+                actionLabel: appController.t('demoModeAction'),
+                onAction: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
             Row(
               children: [
                 Expanded(
@@ -63,10 +80,12 @@ class HomeScreen extends StatelessWidget {
                 ),
                 if (overdueTasks.isNotEmpty)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.12),
+                      color: Colors.redAccent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -93,7 +112,7 @@ class HomeScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -181,6 +200,17 @@ class HomeScreen extends StatelessWidget {
                   label: appController.t('addGoal'),
                   icon: Icons.add,
                   onPressed: () {
+                    if (!appController.isAuthenticated) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(appController.t('loginRequired')),
+                        ),
+                      );
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                      return;
+                    }
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const AddEditGoalScreen(),
@@ -195,7 +225,7 @@ class HomeScreen extends StatelessWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: goalController.goals.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final goal = goalController.goals[index];
                     final goalTasks = taskController.tasksForGoal(goal.id);
@@ -206,8 +236,9 @@ class HomeScreen extends StatelessWidget {
                       width: 190,
                       child: GoalListCard(
                         goal: goal,
-                        progress:
-                            goalTasks.isEmpty ? 0 : completed / goalTasks.length,
+                        progress: goalTasks.isEmpty
+                            ? 0
+                            : completed / goalTasks.length,
                         progressLabel:
                             '$completed/${goalTasks.length} ${appController.t('completed')}',
                         onTap: () {

@@ -8,7 +8,9 @@ import '../providers/task_controller.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/study_app_bar.dart';
 import '../widgets/task_tile.dart';
+import '../widgets/demo_notice_card.dart';
 import 'task_details_screen.dart';
+import 'auth/login_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -18,6 +20,7 @@ class TasksScreen extends StatefulWidget {
 }
 
 enum TaskFilter { all, today, upcoming, overdue, completed }
+
 enum TaskSort { dueDate, newest, priority }
 
 class _TasksScreenState extends State<TasksScreen> {
@@ -98,14 +101,20 @@ class _TasksScreenState extends State<TasksScreen> {
         return SafeArea(
           child: ListView(
             shrinkWrap: true,
-            children: TaskFilter.values.map((filter) {
-              return RadioListTile<TaskFilter>(
-                value: filter,
+            children: [
+              RadioGroup<TaskFilter>(
                 groupValue: _filter,
-                title: Text(_filterLabelFor(appController, filter)),
                 onChanged: (value) => Navigator.of(context).pop(value),
-              );
-            }).toList(),
+                child: Column(
+                  children: TaskFilter.values.map((filter) {
+                    return RadioListTile<TaskFilter>(
+                      value: filter,
+                      title: Text(_filterLabelFor(appController, filter)),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -124,14 +133,20 @@ class _TasksScreenState extends State<TasksScreen> {
         return SafeArea(
           child: ListView(
             shrinkWrap: true,
-            children: TaskSort.values.map((sort) {
-              return RadioListTile<TaskSort>(
-                value: sort,
+            children: [
+              RadioGroup<TaskSort>(
                 groupValue: _sort,
-                title: Text(_sortLabelFor(appController, sort)),
                 onChanged: (value) => Navigator.of(context).pop(value),
-              );
-            }).toList(),
+                child: Column(
+                  children: TaskSort.values.map((sort) {
+                    return RadioListTile<TaskSort>(
+                      value: sort,
+                      title: Text(_sortLabelFor(appController, sort)),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -154,7 +169,8 @@ class _TasksScreenState extends State<TasksScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     var filtered = tasks.where((task) {
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           task.title.toLowerCase().contains(query) ||
           task.notes.toLowerCase().contains(query);
       if (!matchesQuery) return false;
@@ -182,9 +198,7 @@ class _TasksScreenState extends State<TasksScreen> {
       }
     }).toList();
 
-    final indexMap = {
-      for (var i = 0; i < tasks.length; i++) tasks[i].id: i,
-    };
+    final indexMap = {for (var i = 0; i < tasks.length; i++) tasks[i].id: i};
 
     switch (_sort) {
       case TaskSort.newest:
@@ -219,9 +233,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final visibleTasks = _applyFilters(tasks);
 
     return Scaffold(
-      appBar: StudyAppBar(
-        title: appController.t('tasks'),
-      ),
+      appBar: StudyAppBar(title: appController.t('tasks')),
       body: taskController.tasks.isEmpty
           ? EmptyState(
               title: appController.t('tasks'),
@@ -230,6 +242,21 @@ class _TasksScreenState extends State<TasksScreen> {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                if (appController.isGuest) ...[
+                  DemoNoticeCard(
+                    title: appController.t('demoModeTitle'),
+                    message: appController.t('demoModeMessage'),
+                    actionLabel: appController.t('demoModeAction'),
+                    onAction: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -258,7 +285,8 @@ class _TasksScreenState extends State<TasksScreen> {
                             ),
                             const SizedBox(width: 8),
                             ..._weekDays().map((day) {
-                              final isSelected = _selectedDate != null &&
+                              final isSelected =
+                                  _selectedDate != null &&
                                   _selectedDate!.year == day.year &&
                                   _selectedDate!.month == day.month &&
                                   _selectedDate!.day == day.day;
@@ -289,17 +317,17 @@ class _TasksScreenState extends State<TasksScreen> {
                   child: Row(
                     children: [
                       ChoiceChip(
-                        label: Text(appController.t('filter') +
-                            ': ' +
-                            _filterLabel(appController)),
+                        label: Text(
+                          '${appController.t('filter')}: ${_filterLabel(appController)}',
+                        ),
                         selected: true,
                         onSelected: (_) => _showFilterSheet(context),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: Text(appController.t('sort') +
-                            ': ' +
-                            _sortLabel(appController)),
+                        label: Text(
+                          '${appController.t('sort')}: ${_sortLabel(appController)}',
+                        ),
                         selected: true,
                         onSelected: (_) => _showSortSheet(context),
                       ),
@@ -324,7 +352,9 @@ class _TasksScreenState extends State<TasksScreen> {
                       child: TaskTile(
                         task: task,
                         goalName: goalName,
-                        onToggle: () => taskController.toggleTask(task),
+                        onToggle: appController.isAuthenticated
+                            ? () => taskController.toggleTask(task)
+                            : null,
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(

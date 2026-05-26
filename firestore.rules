@@ -1,0 +1,194 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function hasOnlyKeys(data, allowed) {
+      return data.keys().hasOnly(allowed);
+    }
+
+    function hasAllKeys(data, required) {
+      return data.keys().hasAll(required);
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownerMatches(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function currentUserEnabled() {
+      return signedIn() &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled != true;
+    }
+
+    function isAdmin() {
+      return currentUserEnabled() &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return currentUserEnabled() && request.auth.uid == userId;
+    }
+
+    function isValidRole(role) {
+      return role in ['user', 'admin'];
+    }
+
+    function isValidUserData(data) {
+      return hasOnlyKeys(
+              data,
+              ['name', 'email', 'avatarUrl', 'role', 'disabled', 'deletedAt']
+          ) &&
+          hasAllKeys(data, ['name', 'email', 'role', 'disabled']) &&
+          data.name is string &&
+          data.name.size() <= 100 &&
+          data.email is string &&
+          data.email.size() <= 200 &&
+          (!('avatarUrl' in data) || data.avatarUrl == null || data.avatarUrl is string) &&
+          isValidRole(data.role) &&
+          data.disabled is bool &&
+          (!('deletedAt' in data) || data.deletedAt is timestamp);
+    }
+
+    function isValidGoalData(data) {
+      return hasOnlyKeys(
+              data,
+              ['area', 'type', 'description', 'coverUrl', 'targetDate']
+          ) &&
+          hasAllKeys(data, ['area', 'type', 'description', 'targetDate']) &&
+          data.area is string &&
+          data.area.size() > 0 &&
+          data.area.size() <= 100 &&
+          data.type is string &&
+          data.type.size() > 0 &&
+          data.type.size() <= 100 &&
+          data.description is string &&
+          data.description.size() <= 2000 &&
+          (!('coverUrl' in data) || data.coverUrl == null || data.coverUrl is string) &&
+          data.targetDate is string;
+    }
+
+    function isValidPriority(priority) {
+      return priority is int && priority >= 0 && priority <= 2;
+    }
+
+    function isValidTaskData(data) {
+      return hasOnlyKeys(
+              data,
+              [
+                'goalId',
+                'title',
+                'notes',
+                'dueDate',
+                'isDone',
+                'priority',
+                'createdAt',
+                'subtasks'
+              ]
+          ) &&
+          hasAllKeys(
+              data,
+              ['goalId', 'title', 'notes', 'isDone', 'priority', 'createdAt', 'subtasks']
+          ) &&
+          data.goalId is string &&
+          data.goalId.size() > 0 &&
+          data.goalId.size() <= 120 &&
+          data.title is string &&
+          data.title.size() > 0 &&
+          data.title.size() <= 200 &&
+          data.notes is string &&
+          data.notes.size() <= 5000 &&
+          (!('dueDate' in data) || data.dueDate == null || data.dueDate is string) &&
+          data.isDone is bool &&
+          isValidPriority(data.priority) &&
+          data.createdAt is string &&
+          data.subtasks is list &&
+          data.subtasks.size() <= 100;
+    }
+
+    function isValidNotificationType(type) {
+      return type in ['task_reminder', 'goal_deadline', 'streak', 'system'];
+    }
+
+    function isValidNotificationData(data, userId) {
+      return hasOnlyKeys(
+              data,
+              ['userId', 'title', 'message', 'type', 'isRead', 'createdAt', 'data']
+          ) &&
+          hasAllKeys(
+              data,
+              ['userId', 'title', 'message', 'type', 'isRead', 'createdAt']
+          ) &&
+          data.userId == userId &&
+          data.title is string &&
+          data.title.size() > 0 &&
+          data.title.size() <= 200 &&
+          data.message is string &&
+          data.message.size() > 0 &&
+          data.message.size() <= 1000 &&
+          isValidNotificationType(data.type) &&
+          data.isRead is bool &&
+          data.createdAt is string &&
+          (!('data' in data) || data.data == null || data.data is map);
+    }
+
+    match /users/{userId} {
+      allow read: if (ownerMatches(userId) || isAdmin()) &&
+          isValidUserData(resource.data);
+
+      allow create: if (ownerMatches(userId) &&
+              isValidUserData(request.resource.data) &&
+              request.resource.data.role == 'user' &&
+              request.resource.data.disabled == false) ||
+          (isAdmin() && isValidUserData(request.resource.data));
+
+      allow update: if (ownerMatches(userId) &&
+              isValidUserData(request.resource.data) &&
+              resource.data.disabled != true &&
+              request.resource.data.role == resource.data.role &&
+              request.resource.data.disabled == resource.data.disabled) ||
+          (isAdmin() && isValidUserData(request.resource.data));
+
+      allow delete: if isAdmin();
+
+      match /goals/{goalId} {
+        allow read: if (isOwner(userId) || isAdmin()) &&
+            isValidGoalData(resource.data);
+        allow create, update: if (isOwner(userId) || isAdmin()) &&
+            isValidGoalData(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      match /tasks/{taskId} {
+        allow read: if (isOwner(userId) || isAdmin()) &&
+            isValidTaskData(resource.data);
+        allow create, update: if (isOwner(userId) || isAdmin()) &&
+            isValidTaskData(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if (isOwner(userId) || isAdmin()) &&
+            isValidNotificationData(resource.data, userId);
+        allow create, update: if (isOwner(userId) || isAdmin()) &&
+            isValidNotificationData(request.resource.data, userId);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /public_goals/{goalId} {
+      allow read: if isValidGoalData(resource.data);
+      allow create, update: if isAdmin() &&
+          isValidGoalData(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /public_tasks/{taskId} {
+      allow read: if isValidTaskData(resource.data);
+      allow create, update: if isAdmin() &&
+          isValidTaskData(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
