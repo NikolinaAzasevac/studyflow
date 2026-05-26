@@ -33,27 +33,18 @@ class ProgressRing extends StatelessWidget {
                 value: value,
                 strokeWidth: 10,
                 color: scheme.primary,
-                backgroundColor: scheme.primary.withOpacity(0.15),
+                backgroundColor: scheme.primary.withValues(alpha: 0.15),
               ),
             ),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text(label, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
+                Text(subtitle, style: Theme.of(context).textTheme.labelMedium),
                 if (footer != null) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    footer!,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
+                  Text(footer!, style: Theme.of(context).textTheme.labelSmall),
                 ],
               ],
             ),

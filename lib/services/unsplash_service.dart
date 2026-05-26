@@ -26,8 +26,13 @@ class UnsplashService {
   );
 
   Future<List<UnsplashImage>> searchPhotos(String query) async {
-    if (query.trim().isEmpty || _accessKey == 'YOUR_UNSPLASH_ACCESS_KEY') {
+    if (query.trim().isEmpty) {
       return [];
+    }
+    if (_accessKey == 'YOUR_UNSPLASH_ACCESS_KEY') {
+      throw Exception(
+        'Unsplash access key is missing. Run with --dart-define=UNSPLASH_ACCESS_KEY=your_key.',
+      );
     }
 
     final uri = Uri.parse(
@@ -40,7 +45,7 @@ class UnsplashService {
     );
 
     if (response.statusCode != 200) {
-      return [];
+      throw Exception('Unsplash request failed (${response.statusCode}).');
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;

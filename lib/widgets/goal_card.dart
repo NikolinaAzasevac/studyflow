@@ -29,7 +29,7 @@ class GoalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -41,7 +41,7 @@ class GoalCard extends StatelessWidget {
             height: 44,
             width: 44,
             decoration: BoxDecoration(
-              color: scheme.primary.withOpacity(0.12),
+              color: scheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(Icons.flag, color: scheme.primary),
@@ -52,10 +52,7 @@ class GoalCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (title != null) ...[
-                  Text(
-                    title!,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
+                  Text(title!, style: Theme.of(context).textTheme.labelMedium),
                   const SizedBox(height: 4),
                 ],
                 Text(

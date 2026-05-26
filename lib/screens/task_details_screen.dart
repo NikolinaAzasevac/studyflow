@@ -54,12 +54,14 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
     if (confirmed == true) {
       final removed = await taskController.deleteTask(widget.task.id);
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).pop();
       if (removed != null) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(appController.t('taskDeleted')),
+            showCloseIcon: true,
             action: SnackBarAction(
               label: appController.t('undo'),
               onPressed: () => taskController.restoreTask(removed),
@@ -68,6 +70,41 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         );
       }
     }
+  }
+
+  Future<void> _editSubtask(
+    BuildContext context,
+    TaskModel task,
+    String subtaskId,
+    String initialTitle,
+  ) async {
+    final appController = context.read<AppController>();
+    final taskController = context.read<TaskController>();
+    final controller = TextEditingController(text: initialTitle);
+    final updatedTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appController.t('addSubtask')),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: appController.t('subtaskHint'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(appController.t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(appController.t('save')),
+          ),
+        ],
+      ),
+    );
+    if (updatedTitle == null || updatedTitle.trim().isEmpty) return;
+    await taskController.updateSubtask(task.id, subtaskId, updatedTitle);
   }
 
   @override
@@ -86,22 +123,26 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(appController.t('taskDetails')),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => AddEditTaskScreen(task: currentTask),
+        actions: appController.isAuthenticated
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AddEditTaskScreen(task: currentTask),
+                      ),
+                    );
+                    if (!context.mounted) return;
+                    await taskController.loadTasks();
+                  },
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmDelete(context),
-          ),
-        ],
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context),
+                ),
+              ]
+            : null,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -113,11 +154,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
-          Text(
-            widget.goalName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          Text(widget.goalName, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 16),
           if (currentTask.notes.isNotEmpty)
             Text(
@@ -169,13 +206,14 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          PrimaryButton(
-            label: currentTask.isDone
-                ? appController.t('markPending')
-                : appController.t('markDone'),
-            icon: Icons.check,
-            onPressed: () => taskController.toggleTask(currentTask),
-          ),
+          if (appController.isAuthenticated)
+            PrimaryButton(
+              label: currentTask.isDone
+                  ? appController.t('markPending')
+                  : appController.t('markDone'),
+              icon: Icons.check,
+              onPressed: () => taskController.toggleTask(currentTask),
+            ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -190,31 +228,32 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _subtaskController,
-                  decoration: InputDecoration(
-                    hintText: appController.t('subtaskHint'),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+          if (appController.isAuthenticated)
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _subtaskController,
+                    decoration: InputDecoration(
+                      hintText: appController.t('subtaskHint'),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: () {
-                  final title = _subtaskController.text.trim();
-                  if (title.isEmpty) return;
-                  taskController.addSubtask(currentTask.id, title);
-                  _subtaskController.clear();
-                },
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () {
+                    final title = _subtaskController.text.trim();
+                    if (title.isEmpty) return;
+                    taskController.addSubtask(currentTask.id, title);
+                    _subtaskController.clear();
+                  },
+                ),
+              ],
+            ),
           const SizedBox(height: 12),
           if (subtasks.isEmpty)
             Text(appController.t('noSubtasks'))
@@ -226,22 +265,42 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                   leading: Checkbox(
                     value: subtask.isDone,
-                    onChanged: (_) => taskController.toggleSubtask(
-                      currentTask.id,
-                      subtask.id,
-                    ),
+                    onChanged: appController.isAuthenticated
+                        ? (_) => taskController.toggleSubtask(
+                            currentTask.id,
+                            subtask.id,
+                          )
+                        : null,
                   ),
                   title: Text(
                     subtask.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => taskController.deleteSubtask(
-                      currentTask.id,
-                      subtask.id,
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: appController.isAuthenticated
+                            ? () => _editSubtask(
+                                context,
+                                currentTask,
+                                subtask.id,
+                                subtask.title,
+                              )
+                            : null,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: appController.isAuthenticated
+                            ? () => taskController.deleteSubtask(
+                                currentTask.id,
+                                subtask.id,
+                              )
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
               );

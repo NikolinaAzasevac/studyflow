@@ -45,9 +45,11 @@ class GoalDetailsScreen extends StatelessWidget {
       await goalController.deleteGoal(goal.id);
       if (!context.mounted) return;
       Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(appController.t('goalDeleted')),
+          showCloseIcon: true,
           action: SnackBarAction(
             label: appController.t('undo'),
             onPressed: () {
@@ -78,22 +80,27 @@ class GoalDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: StudyAppBar(
         title: appController.t('goalDetails'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => AddEditGoalScreen(goal: currentGoal),
+        actions: appController.isAuthenticated
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AddEditGoalScreen(goal: currentGoal),
+                      ),
+                    );
+                    if (!context.mounted) return;
+                    await goalController.loadGoals();
+                    await taskController.loadTasks();
+                  },
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmDelete(context),
-          ),
-        ],
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context),
+                ),
+              ]
+            : null,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -104,10 +111,9 @@ class GoalDetailsScreen extends StatelessWidget {
               height: 180,
               child: currentGoal.coverUrl == null
                   ? Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.12),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.12),
                       child: Icon(
                         Icons.flag,
                         size: 56,
@@ -152,8 +158,9 @@ class GoalDetailsScreen extends StatelessWidget {
               value: progress,
               minHeight: 12,
               color: Theme.of(context).colorScheme.tertiary,
-              backgroundColor:
-                  Theme.of(context).colorScheme.tertiary.withOpacity(0.2),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.tertiary.withValues(alpha: 0.2),
             ),
           ),
           const SizedBox(height: 8),
@@ -171,13 +178,19 @@ class GoalDetailsScreen extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AddEditTaskScreen(goalId: currentGoal.id),
-                    ),
-                  );
-                },
+                onPressed: appController.isAuthenticated
+                    ? () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                AddEditTaskScreen(goalId: currentGoal.id),
+                          ),
+                        );
+                        if (!context.mounted) return;
+                        await taskController.loadTasks();
+                        await goalController.loadGoals();
+                      }
+                    : null,
                 icon: const Icon(Icons.add_circle_outline),
               ),
             ],
@@ -195,7 +208,9 @@ class GoalDetailsScreen extends StatelessWidget {
                 child: TaskTile(
                   task: task,
                   goalName: currentGoal.displayTitle,
-                  onToggle: () => taskController.toggleTask(task),
+                  onToggle: appController.isAuthenticated
+                      ? () => taskController.toggleTask(task)
+                      : null,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -210,17 +225,21 @@ class GoalDetailsScreen extends StatelessWidget {
               );
             }),
           const SizedBox(height: 16),
-          PrimaryButton(
-            label: appController.t('addTask'),
-            icon: Icons.add,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => AddEditTaskScreen(goalId: currentGoal.id),
-                ),
-              );
-            },
-          ),
+          if (appController.isAuthenticated)
+            PrimaryButton(
+              label: appController.t('addTask'),
+              icon: Icons.add,
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AddEditTaskScreen(goalId: currentGoal.id),
+                  ),
+                );
+                if (!context.mounted) return;
+                await taskController.loadTasks();
+                await goalController.loadGoals();
+              },
+            ),
         ],
       ),
     );

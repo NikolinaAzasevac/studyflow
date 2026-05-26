@@ -24,6 +24,18 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   String? _goalId;
   DateTime? _dueDate;
   TaskPriority _priority = TaskPriority.medium;
+  bool _isSubmitting = false;
+
+  void _showSaveError(AppController appController, Object error) {
+    final reason = error.toString();
+    final template = 'Save failed: {reason}';
+    final message = template.contains('{reason}')
+        ? template.replaceAll('{reason}', reason)
+        : 'Save failed. Check your connection or permissions. ($reason)';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -61,14 +73,21 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
+    final appController = context.read<AppController>();
+    if (!appController.isAuthenticated) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please log in to continue.')));
+      return;
+    }
     final goalId = _goalId;
     if (goalId == null) {
-      final appController = context.read<AppController>();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appController.t('selectGoalFirst'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Select a goal first.')));
       return;
     }
 
@@ -85,27 +104,60 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     );
 
     final controller = context.read<TaskController>();
+    setState(() => _isSubmitting = true);
     if (widget.task == null) {
-      controller.addTask(task);
+      try {
+        await controller.addTask(task);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        _showSaveError(appController, e);
+        return;
+      }
     } else {
-      controller.updateTask(task);
+      try {
+        await controller.updateTask(task);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        _showSaveError(appController, e);
+        return;
+      }
     }
 
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final appController = context.watch<AppController>();
     final goalController = context.watch<GoalController>();
+    if (!appController.isAuthenticated) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Add Task')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Please log in to continue.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+    final goalsById = {for (final goal in goalController.goals) goal.id: goal};
+    final dropdownValue = _goalId != null && goalsById.containsKey(_goalId)
+        ? _goalId
+        : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.task == null
-              ? appController.t('addTask')
-              : appController.t('editTask'),
-        ),
+        title: Text(widget.task == null ? 'Add Task' : 'Edit Task'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -116,14 +168,14 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               TextFormField(
                 controller: _titleController,
                 decoration: InputDecoration(
-                  labelText: appController.t('taskTitle'),
+                  labelText: 'Task title',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Title is required.';
+                    return 'This field is required.';
                   }
                   return null;
                 },
@@ -132,7 +184,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               TextFormField(
                 controller: _notesController,
                 decoration: InputDecoration(
-                  labelText: appController.t('notes'),
+                  labelText: 'Notes',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -141,14 +193,14 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _goalId,
+                initialValue: dropdownValue,
                 decoration: InputDecoration(
-                  labelText: appController.t('goals'),
+                  labelText: 'Goals',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                items: goalController.goals
+                items: goalsById.values
                     .map(
                       (goal) => DropdownMenuItem(
                         value: goal.id,
@@ -159,7 +211,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 onChanged: (value) => setState(() => _goalId = value),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return appController.t('selectGoal');
+                    return 'Select a goal.';
                   }
                   return null;
                 },
@@ -173,7 +225,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                       icon: const Icon(Icons.calendar_today),
                       label: Text(
                         _dueDate == null
-                            ? appController.t('dueDate')
+                            ? 'Due date'
                             : '${_dueDate!.day}/${_dueDate!.month}/${_dueDate!.year}',
                       ),
                     ),
@@ -182,9 +234,9 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<TaskPriority>(
-                value: _priority,
+                initialValue: _priority,
                 decoration: InputDecoration(
-                  labelText: appController.t('priority'),
+                  labelText: 'Priority',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -205,9 +257,9 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               ),
               const SizedBox(height: 24),
               PrimaryButton(
-                label: appController.t('save'),
+                label: 'Save',
                 icon: Icons.save,
-                onPressed: _save,
+                onPressed: _isSubmitting ? null : _save,
               ),
             ],
           ),

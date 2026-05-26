@@ -34,7 +34,7 @@ class ProgressCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -63,7 +63,7 @@ class ProgressCard extends StatelessWidget {
               value: progress,
               minHeight: emphasize ? 12 : 10,
               color: scheme.tertiary,
-              backgroundColor: scheme.tertiary.withOpacity(0.2),
+              backgroundColor: scheme.tertiary.withValues(alpha: 0.2),
             ),
           ),
           SizedBox(height: emphasize ? 10 : 8),

@@ -23,6 +23,18 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
   final _searchController = TextEditingController();
   DateTime? _targetDate;
   String? _selectedCoverUrl;
+  bool _isSubmitting = false;
+
+  void _showSaveError(AppController appController, Object error) {
+    final reason = error.toString();
+    final template = 'Save failed: {reason}';
+    final message = template.contains('{reason}')
+        ? template.replaceAll('{reason}', reason)
+        : 'Save failed. Check your connection or permissions. ($reason)';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -58,15 +70,24 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
+    final appController = context.read<AppController>();
+    if (!appController.isAuthenticated) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please log in to continue.')));
+      return;
+    }
     if (_targetDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.read<AppController>().t('pickDate'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Pick a date first.')));
       return;
     }
     final goalController = context.read<GoalController>();
+    setState(() => _isSubmitting = true);
 
     final goal = GoalModel(
       id: widget.goal?.id ?? '',
@@ -78,26 +99,54 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
     );
 
     if (widget.goal == null) {
-      goalController.addGoal(goal);
+      try {
+        await goalController.addGoal(goal);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        _showSaveError(appController, e);
+        return;
+      }
     } else {
-      goalController.updateGoal(goal);
+      try {
+        await goalController.updateGoal(goal);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        _showSaveError(appController, e);
+        return;
+      }
     }
 
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final appController = context.watch<AppController>();
     final goalController = context.watch<GoalController>();
+    if (!appController.isAuthenticated) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Add Goal')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Please log in to continue.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.goal == null
-              ? appController.t('addGoal')
-              : appController.t('editGoal'),
-        ),
+        title: Text(widget.goal == null ? 'Add Goal' : 'Edit Goal'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -111,14 +160,14 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                   TextFormField(
                     controller: _areaController,
                     decoration: InputDecoration(
-                      labelText: appController.t('goalArea'),
+                      labelText: 'Area',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return appController.t('fieldRequired');
+                        return 'This field is required.';
                       }
                       return null;
                     },
@@ -127,14 +176,14 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                   TextFormField(
                     controller: _typeController,
                     decoration: InputDecoration(
-                      labelText: appController.t('goalType'),
+                      labelText: 'Type',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return appController.t('fieldRequired');
+                        return 'This field is required.';
                       }
                       return null;
                     },
@@ -143,7 +192,7 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                   TextFormField(
                     controller: _descriptionController,
                     decoration: InputDecoration(
-                      labelText: appController.t('goalDescription'),
+                      labelText: 'Description',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -156,7 +205,7 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                     icon: const Icon(Icons.calendar_today),
                     label: Text(
                       _targetDate == null
-                          ? appController.t('goalDate')
+                          ? 'Target date'
                           : '${_targetDate!.day}/${_targetDate!.month}/${_targetDate!.year}',
                     ),
                   ),
@@ -165,7 +214,7 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              appController.t('selectCover'),
+              'Select cover',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
@@ -175,7 +224,7 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: appController.t('searchUnsplash'),
+                      hintText: 'Search Unsplash',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -194,17 +243,44 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (goalController.searchResults.isEmpty)
+            if (goalController.searchError != null)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceVariant
-                      .withOpacity(0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.errorContainer.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(appController.t('searchPrompt')),
+                child: Text(
+                  goalController.searchError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
+              )
+            else if (_searchController.text.trim().isNotEmpty &&
+                goalController.searchResults.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text('No images found for this search.'),
+              )
+            else if (goalController.searchResults.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text('Search Unsplash to pick a cover image.'),
               )
             else
               GridView.builder(
@@ -240,7 +316,7 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                           Positioned.fill(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.4),
+                                color: Colors.black.withValues(alpha: 0.4),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
@@ -256,9 +332,9 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
               ),
             const SizedBox(height: 24),
             PrimaryButton(
-              label: appController.t('save'),
+              label: 'Save',
               icon: Icons.save,
-              onPressed: _save,
+              onPressed: _isSubmitting ? null : _save,
             ),
           ],
         ),

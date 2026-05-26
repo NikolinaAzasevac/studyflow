@@ -13,7 +13,7 @@ class TaskTile extends StatelessWidget {
 
   final TaskModel task;
   final String goalName;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final VoidCallback onTap;
 
   Color _priorityColor(BuildContext context) {
@@ -45,21 +45,16 @@ class TaskTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
         onTap: onTap,
-        leading: Checkbox(value: task.isDone, onChanged: (_) => onToggle()),
-        title: Text(
-          task.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        leading: Checkbox(
+          value: task.isDone,
+          onChanged: onToggle == null ? null : (_) => onToggle!(),
         ),
+        title: Text(task.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text(
-              goalName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text(goalName, maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -69,7 +64,7 @@ class TaskTile extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: _priorityColor(context).withOpacity(0.15),
+                    color: _priorityColor(context).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

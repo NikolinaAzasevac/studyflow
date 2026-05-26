@@ -14,10 +14,15 @@ class WeeklyChart extends StatelessWidget {
     final daysSr = ['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned'];
     final dayNames = locale == 'sr' ? daysSr : daysEn;
     final now = DateTime.now();
-    final startOfWeek =
-        DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
-    final dates =
-        List<DateTime>.generate(7, (i) => startOfWeek.add(Duration(days: i)));
+    final startOfWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
+    final dates = List<DateTime>.generate(
+      7,
+      (i) => startOfWeek.add(Duration(days: i)),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,15 +51,16 @@ class WeeklyChart extends StatelessWidget {
                         tween: Tween<double>(begin: 0, end: value.toDouble()),
                         duration: const Duration(milliseconds: 500),
                         builder: (context, animValue, _) {
-                          final height =
-                              maxVal == 0 ? 4 : (animValue / maxVal) * 60;
+                          final height = maxVal == 0
+                              ? 4
+                              : (animValue / maxVal) * 60;
                           return Container(
                             height: height + 6,
                             decoration: BoxDecoration(
-                              color: scheme.primary.withOpacity(
-                                0.2 +
-                                    0.6 *
-                                        (value / (maxVal == 0 ? 1 : maxVal)),
+                              color: scheme.primary.withValues(
+                                alpha:
+                                    0.2 +
+                                    0.6 * (value / (maxVal == 0 ? 1 : maxVal)),
                               ),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -72,10 +78,9 @@ class WeeklyChart extends StatelessWidget {
                         dateLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: scheme.outline),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(color: scheme.outline),
                       ),
                     ],
                   ),

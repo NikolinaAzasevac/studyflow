@@ -24,7 +24,7 @@ class BottomNavBar extends StatelessWidget {
         color: scheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, -6),
           ),
@@ -33,7 +33,9 @@ class BottomNavBar extends StatelessWidget {
       child: Row(
         children: List.generate(labels.length, (index) {
           final selected = index == currentIndex;
-          final color = selected ? scheme.primary : scheme.onSurface.withOpacity(0.55);
+          final color = selected
+              ? scheme.primary
+              : scheme.onSurface.withValues(alpha: 0.55);
           return Expanded(
             child: InkWell(
               onTap: () => onTap(index),
@@ -48,7 +50,9 @@ class BottomNavBar extends StatelessWidget {
                       labels[index],
                       style: TextStyle(
                         color: color,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         fontSize: 12,
                       ),
                     ),

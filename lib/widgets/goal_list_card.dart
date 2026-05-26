@@ -29,7 +29,7 @@ class GoalListCard extends StatelessWidget {
           color: scheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -39,13 +39,15 @@ class GoalListCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
               child: SizedBox(
                 height: 80,
                 width: double.infinity,
                 child: goal.coverUrl == null
                     ? Container(
-                        color: scheme.primary.withOpacity(0.1),
+                        color: scheme.primary.withValues(alpha: 0.1),
                         child: Icon(
                           Icons.flag,
                           size: 40,
@@ -82,7 +84,7 @@ class GoalListCard extends StatelessWidget {
                       value: progress,
                       minHeight: 6,
                       color: scheme.tertiary,
-                      backgroundColor: scheme.tertiary.withOpacity(0.2),
+                      backgroundColor: scheme.tertiary.withValues(alpha: 0.2),
                     ),
                   ),
                   const SizedBox(height: 4),
