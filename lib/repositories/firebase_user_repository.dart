@@ -59,8 +59,14 @@ class FirebaseUserRepository implements UserRepository {
         .doc(userId)
         .collection('tasks')
         .get();
+    final notifications = await _db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .get();
     await _deleteSnapshot(goals);
     await _deleteSnapshot(tasks);
+    await _deleteSnapshot(notifications);
   }
 
   @override

@@ -77,6 +77,7 @@ class AppController extends ChangeNotifier {
       'continueGuest': 'Continue as guest',
       'createdAt': 'Created',
       'darkMode': 'Dark mode',
+      'daysAgo': '{count} days ago',
       'daysLeft': 'days left',
       'defaultUserName': 'Student',
       'delete': 'Delete',
@@ -93,6 +94,7 @@ class AppController extends ChangeNotifier {
       'disableUserConfirm': 'Disable this user and remove their data?',
       'editUser': 'Edit user',
       'email': 'Email',
+      'emailInUse': 'Email is already in use.',
       'emptyGoals': 'No goals yet.',
       'emptyTasks': 'No tasks yet.',
       'fieldRequired': 'This field is required.',
@@ -106,6 +108,7 @@ class AppController extends ChangeNotifier {
       'goalsCount': 'Goals',
       'home': 'Home',
       'invalidEmail': 'Enter a valid email address.',
+      'invalidCredentials': 'Invalid email or password.',
       'language': 'Language',
       'lastWeek': 'Last week',
       'login': 'Log in',
@@ -116,6 +119,8 @@ class AppController extends ChangeNotifier {
       'markAllRead': 'Mark all read',
       'markPending': 'Mark pending',
       'name': 'Name',
+      'newGoalAddedMessage': 'You added a new goal: {goal}',
+      'newGoalAddedTitle': 'New goal added!',
       'nextGoal': 'Next goal',
       'nextUp': 'Next up',
       'no': 'No',
@@ -125,6 +130,7 @@ class AppController extends ChangeNotifier {
       'noUsers': 'No users found.',
       'notAuthorized': 'You are not authorized.',
       'notSet': 'Not set',
+      'notificationTargetMissing': 'This item is no longer available.',
       'notifications': 'Notifications',
       'onboardingDesc1':
           'Turn study goals into clear tasks with deadlines and priorities.',
@@ -163,10 +169,14 @@ class AppController extends ChangeNotifier {
       'sendResetLink': 'Send reset link',
       'sort': 'Sort',
       'streak': 'Streak',
+      'streakMilestoneMessage': 'Amazing! You have a {count} day streak!',
+      'streakMilestoneTitle': 'Streak milestone!',
       'subtaskHint': 'What needs to be done?',
       'subtasks': 'Subtasks',
       'taskDeleted': 'Task deleted.',
       'taskDetails': 'Task details',
+      'taskCompletedMessage': 'Great job! You completed "{task}".',
+      'taskCompletedTitle': 'Task completed!',
       'tasks': 'Tasks',
       'tasksCompleted': 'tasks completed',
       'thisWeek': 'This week',
@@ -177,7 +187,150 @@ class AppController extends ChangeNotifier {
       'unknownGoal': 'Unknown goal',
       'upcoming': 'Upcoming',
       'welcome': 'Welcome',
+      'weakPassword': 'Password is too weak.',
       'yes': 'Yes',
+      'yesterday': 'Yesterday',
+      'disabledAccount': 'This account has been disabled.',
+      'authFailed': 'Authentication failed.',
+    },
+    'sr': {
+      'about': 'O aplikaciji',
+      'addGoal': 'Dodaj cilj',
+      'addSubtask': 'Dodaj podzadatak',
+      'addTask': 'Dodaj zadatak',
+      'adminPanel': 'Admin panel',
+      'all': 'Sve',
+      'avatarUpdated': 'Avatar je azuriran.',
+      'byDueDate': 'Po roku',
+      'byNewest': 'Po novijem',
+      'byPriority': 'Po prioritetu',
+      'camera': 'Kamera',
+      'cancel': 'Otkazi',
+      'changesSaved': 'Promene su sacuvane.',
+      'completed': 'zavrseno',
+      'completedFilter': 'Zavrseni',
+      'confirmPassword': 'Potvrdi lozinku',
+      'continueGuest': 'Nastavi kao gost',
+      'createdAt': 'Kreirano',
+      'darkMode': 'Tamni rezim',
+      'daysAgo': 'pre {count} dana',
+      'daysLeft': 'dana do roka',
+      'defaultUserName': 'Student',
+      'delete': 'Obrisi',
+      'deleteGoal': 'Obrisi cilj',
+      'deleteGoalConfirm': 'Obrisati ovaj cilj i njegove zadatke?',
+      'deleteTask': 'Obrisi zadatak',
+      'deleteTaskConfirm': 'Obrisati ovaj zadatak?',
+      'deleteUserData': 'Obrisi podatke korisnika',
+      'demoModeAction': 'Prijavi se da sacuvas',
+      'demoModeMessage':
+          'Trenutno koristis demo podatke. Prijavi se da sacuvas svoje ciljeve i zadatke.',
+      'demoModeTitle': 'Guest rezim',
+      'disableUser': 'Onemoguci korisnika',
+      'disableUserConfirm':
+          'Onemoguciti ovog korisnika i ukloniti njegove podatke?',
+      'editUser': 'Izmeni korisnika',
+      'email': 'Email',
+      'emailInUse': 'Email adresa je vec zauzeta.',
+      'emptyGoals': 'Jos nema ciljeva.',
+      'emptyTasks': 'Jos nema zadataka.',
+      'fieldRequired': 'Ovo polje je obavezno.',
+      'files': 'Fajlovi',
+      'filter': 'Filter',
+      'forgotPassword': 'Zaboravljena lozinka?',
+      'getStarted': 'Zapocni',
+      'goalDeleted': 'Cilj je obrisan.',
+      'goalDetails': 'Detalji cilja',
+      'goals': 'Ciljevi',
+      'goalsCount': 'Ciljevi',
+      'home': 'Pocetna',
+      'invalidEmail': 'Unesi ispravnu email adresu.',
+      'invalidCredentials': 'Pogresan email ili lozinka.',
+      'language': 'Jezik',
+      'lastWeek': 'Prosle nedelje',
+      'login': 'Prijava',
+      'loginRequired': 'Prijavi se da nastavis.',
+      'logout': 'Odjava',
+      'manageData': 'Upravljanje podacima',
+      'markDone': 'Oznaci kao gotovo',
+      'markAllRead': 'Oznaci sve kao procitano',
+      'markPending': 'Vrati na cekanje',
+      'name': 'Ime',
+      'newGoalAddedMessage': 'Dodat je novi cilj: {goal}',
+      'newGoalAddedTitle': 'Dodat je novi cilj!',
+      'nextGoal': 'Sledeci cilj',
+      'nextUp': 'Sledece',
+      'no': 'Ne',
+      'noDueDate': 'Nema roka',
+      'noNotifications': 'Jos nema notifikacija.',
+      'noSubtasks': 'Jos nema podzadataka.',
+      'noUsers': 'Nema pronadjenih korisnika.',
+      'notAuthorized': 'Nemas dozvolu za ovu stranicu.',
+      'notSet': 'Nije postavljeno',
+      'notificationTargetMissing': 'Ova stavka vise nije dostupna.',
+      'notifications': 'Notifikacije',
+      'onboardingDesc1':
+          'Pretvori studentske obaveze u jasne ciljeve sa zadacima, rokovima i prioritetima.',
+      'onboardingDesc2':
+          'Prati sta ti je za danas, sta kasni i sta je vec zavrseno.',
+      'onboardingDesc3':
+          'Prati nedeljni napredak i odrzavaj kontinuitet u radu.',
+      'onboardingTitle1': 'Planiraj semestar',
+      'onboardingTitle2': 'Drzi zadatke pod kontrolom',
+      'onboardingTitle3': 'Prati svoj napredak',
+      'overall': 'Ukupno',
+      'overdue': 'Kasni',
+      'overdueFilter': 'Zakasneli',
+      'password': 'Lozinka',
+      'passwordRequirements':
+          'Koristi najmanje 8 karaktera, ukljucujuci velika i mala slova, broj i specijalni znak.',
+      'passwordsDoNotMatch': 'Lozinke se ne poklapaju.',
+      'photoLibrary': 'Galerija',
+      'profile': 'Profil',
+      'progress': 'Napredak',
+      'progressOverview': 'Pregled napretka',
+      'register': 'Registracija',
+      'reset': 'Resetuj',
+      'resetEmailSent': 'Poslat je email za reset lozinke.',
+      'resetPassword': 'Reset lozinke',
+      'resetProgress': 'Resetuj napredak',
+      'resetProgressConfirm':
+          'Da li zelis da obrises sav sacuvani napredak aktivnosti?',
+      'resetProgressConfirmShort':
+          'Obrisi streak i sacuvanu nedeljnu aktivnost.',
+      'role': 'Uloga',
+      'roleAdmin': 'Admin',
+      'roleUser': 'Korisnik',
+      'save': 'Sacuvaj',
+      'saveFailed': 'Cuvanje nije uspelo. Proveri vezu ili dozvole.',
+      'saveFailedWithReason': 'Cuvanje nije uspelo: {reason}',
+      'searchTasks': 'Pretrazi zadatke',
+      'sendResetLink': 'Posalji link',
+      'sort': 'Sortiranje',
+      'streak': 'Streak',
+      'streakMilestoneMessage': 'Sjajno! Imas streak od {count} dana!',
+      'streakMilestoneTitle': 'Streak dostignuce!',
+      'subtaskHint': 'Sta treba da se uradi?',
+      'subtasks': 'Podzadaci',
+      'taskDeleted': 'Zadatak je obrisan.',
+      'taskDetails': 'Detalji zadatka',
+      'taskCompletedMessage': 'Bravo! Zavrsila si zadatak "{task}".',
+      'taskCompletedTitle': 'Zadatak je zavrsen!',
+      'tasks': 'Zadaci',
+      'tasksCompleted': 'zavrsenih zadataka',
+      'thisWeek': 'Ove nedelje',
+      'today': 'Danas',
+      'trendDown': 'Slabije nego prosle nedelje',
+      'trendUp': 'Bolje nego prosle nedelje',
+      'undo': 'Ponisti',
+      'unknownGoal': 'Nepoznat cilj',
+      'upcoming': 'Predstojeci',
+      'welcome': 'Dobrodosla',
+      'weakPassword': 'Lozinka je previse slaba.',
+      'yes': 'Da',
+      'yesterday': 'Juce',
+      'disabledAccount': 'Ovaj nalog je onemogucen.',
+      'authFailed': 'Autentifikacija nije uspela.',
     },
   };
 
@@ -185,6 +338,14 @@ class AppController extends ChangeNotifier {
     return _localizedStrings[_localeCode]?[key] ??
         _localizedStrings['en']?[key] ??
         key;
+  }
+
+  String formatMessage(String key, Map<String, String> values) {
+    var message = t(key);
+    for (final entry in values.entries) {
+      message = message.replaceAll('{${entry.key}}', entry.value);
+    }
+    return message;
   }
 
   Future<void> initialize() async {
@@ -227,8 +388,10 @@ class AppController extends ChangeNotifier {
       final streak = _calculateCurrentStreak();
       if (streak == 7 || streak == 14 || streak == 30) {
         notificationController?.addNotification(
-          title: 'Streak milestone!',
-          message: 'Amazing! You have a $streak day streak!',
+          title: t('streakMilestoneTitle'),
+          message: formatMessage('streakMilestoneMessage', {
+            'count': '$streak',
+          }),
           type: 'streak',
         );
       }
@@ -237,8 +400,8 @@ class AppController extends ChangeNotifier {
     // Add task completed notification
     if (task != null) {
       notificationController?.addNotification(
-        title: 'Task completed!',
-        message: 'Great job! You completed "${task.title}".',
+        title: t('taskCompletedTitle'),
+        message: formatMessage('taskCompletedMessage', {'task': task.title}),
         type: 'task_reminder',
         data: {'taskId': task.id},
       );
@@ -268,8 +431,10 @@ class AppController extends ChangeNotifier {
 
   void addGoalNotification(GoalModel goal) {
     notificationController?.addNotification(
-      title: 'New goal added!',
-      message: 'You added a new goal: ${goal.displayTitle}',
+      title: t('newGoalAddedTitle'),
+      message: formatMessage('newGoalAddedMessage', {
+        'goal': goal.displayTitle,
+      }),
       type: 'goal_deadline',
       data: {'goalId': goal.id},
     );
@@ -336,7 +501,7 @@ class AppController extends ChangeNotifier {
       final data = snapshot.data() as Map<String, dynamic>;
       final model = UserModel.fromMap(firebaseUser.uid, data);
       if (model.disabled) {
-        _authStatusMessage = 'This account has been disabled.';
+        _authStatusMessage = t('disabledAccount');
         _isAuthenticated = false;
         _role = 'guest';
         _user = null;
@@ -358,7 +523,7 @@ class AppController extends ChangeNotifier {
       if (data == null) return;
       final updated = UserModel.fromMap(doc.id, data);
       if (updated.disabled) {
-        _authStatusMessage = 'This account has been disabled.';
+        _authStatusMessage = t('disabledAccount');
         logout();
         return;
       }
@@ -387,7 +552,7 @@ class AppController extends ChangeNotifier {
         final user = UserModel.fromMap(credential.user!.uid, snapshot.data()!);
         if (user.disabled) {
           await _auth.signOut();
-          _authStatusMessage = 'This account has been disabled.';
+          _authStatusMessage = t('disabledAccount');
           notifyListeners();
           return _authStatusMessage;
         }
@@ -396,13 +561,13 @@ class AppController extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       return _mapAuthError(e);
     } catch (_) {
-      return 'Authentication failed.';
+      return t('authFailed');
     }
   }
 
   Future<String?> register(String name, String email, String password) async {
     if (!isStrongPassword(password)) {
-      return 'Use at least 8 characters, including upper/lowercase letters, a number, and a special character.';
+      return t('passwordRequirements');
     }
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -422,7 +587,7 @@ class AppController extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       return _mapAuthError(e);
     } catch (_) {
-      return 'Authentication failed.';
+      return t('authFailed');
     }
   }
 
@@ -433,7 +598,7 @@ class AppController extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       return _mapAuthError(e);
     } catch (_) {
-      return 'Authentication failed.';
+      return t('authFailed');
     }
   }
 
@@ -533,15 +698,15 @@ class AppController extends ChangeNotifier {
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
-        return 'Invalid email or password.';
+        return t('invalidCredentials');
       case 'email-already-in-use':
-        return 'Email is already in use.';
+        return t('emailInUse');
       case 'invalid-email':
-        return 'Invalid email address.';
+        return t('invalidEmail');
       case 'weak-password':
-        return 'Password is too weak.';
+        return t('weakPassword');
       default:
-        return 'Authentication failed.';
+        return t('authFailed');
     }
   }
 

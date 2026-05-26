@@ -12,6 +12,10 @@ const { doc, getDoc, setDoc, updateDoc } = require('firebase/firestore');
 
 const projectId = 'demo-studyflow';
 const rulesPath = path.join(process.cwd(), 'firestore.rules');
+const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+const [host = '127.0.0.1', portValue = '8080'] = (emulatorHost ?? '127.0.0.1:8080').split(':');
+const port = Number(portValue);
+const rulesTest = emulatorHost ? test : test.skip;
 
 let testEnv;
 
@@ -20,21 +24,24 @@ async function authedDb(uid) {
 }
 
 test.before(async () => {
+  if (!emulatorHost) return;
   testEnv = await initializeTestEnvironment({
     projectId,
     firestore: {
       rules: await fs.readFile(rulesPath, 'utf8'),
-      host: '127.0.0.1',
-      port: 8080,
+      host,
+      port,
     },
   });
 });
 
 test.after(async () => {
+  if (!testEnv) return;
   await testEnv.cleanup();
 });
 
 test.afterEach(async () => {
+  if (!testEnv) return;
   await testEnv.clearFirestore();
 });
 
@@ -92,30 +99,30 @@ function validTask(overrides = {}) {
   };
 }
 
-test('owner can create their own user document with valid shape', async () => {
+rulesTest('owner can create their own user document with valid shape', async () => {
   const db = await authedDb('user-1');
   await assertSucceeds(setDoc(doc(db, 'users/user-1'), validUser()));
 });
 
-test('owner cannot elevate their own role on create', async () => {
+rulesTest('owner cannot elevate their own role on create', async () => {
   const db = await authedDb('user-1');
   await assertFails(setDoc(doc(db, 'users/user-1'), validUser({ role: 'admin' })));
 });
 
-test('owner cannot update their own role', async () => {
+rulesTest('owner cannot update their own role', async () => {
   await seedUser('user-1', validUser());
   const db = await authedDb('user-1');
   await assertFails(updateDoc(doc(db, 'users/user-1'), { role: 'admin' }));
 });
 
-test('admin can update another user role', async () => {
+rulesTest('admin can update another user role', async () => {
   await seedUser('admin-1', validUser({ role: 'admin' }));
   await seedUser('user-1', validUser());
   const db = await authedDb('admin-1');
   await assertSucceeds(updateDoc(doc(db, 'users/user-1'), { role: 'admin' }));
 });
 
-test('user can read only their own valid profile', async () => {
+rulesTest('user can read only their own valid profile', async () => {
   await seedUser('user-1', validUser());
   await seedUser('user-2', validUser({ email: 'other@example.com' }));
   const db = await authedDb('user-1');
@@ -123,7 +130,7 @@ test('user can read only their own valid profile', async () => {
   await assertFails(getDoc(doc(db, 'users/user-2')));
 });
 
-test('owner can create a valid goal but not a malformed one', async () => {
+rulesTest('owner can create a valid goal but not a malformed one', async () => {
   await seedUser('user-1', validUser());
   const db = await authedDb('user-1');
   await assertSucceeds(
@@ -137,7 +144,7 @@ test('owner can create a valid goal but not a malformed one', async () => {
   );
 });
 
-test('owner cannot write tasks with invalid priority', async () => {
+rulesTest('owner cannot write tasks with invalid priority', async () => {
   await seedUser('user-1', validUser());
   const db = await authedDb('user-1');
   await assertFails(
@@ -145,7 +152,7 @@ test('owner cannot write tasks with invalid priority', async () => {
   );
 });
 
-test('owner can read and write their own valid task', async () => {
+rulesTest('owner can read and write their own valid task', async () => {
   await seedUser('user-1', validUser());
   await seedTask('user-1', 'task-1', validTask());
   const db = await authedDb('user-1');
@@ -155,7 +162,7 @@ test('owner can read and write their own valid task', async () => {
   );
 });
 
-test('admin can read and manage another users data', async () => {
+rulesTest('admin can read and manage another users data', async () => {
   await seedUser('admin-1', validUser({ role: 'admin' }));
   await seedUser('user-1', validUser());
   await seedGoal('user-1', 'goal-1', validGoal());
