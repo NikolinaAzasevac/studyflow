@@ -1,6 +1,8 @@
 import '../models/goal_model.dart';
 
 abstract class GoalRepository {
+  void setUserId(String? userId);
+  Stream<List<GoalModel>> watchAll();
   Future<List<GoalModel>> fetchAll();
   Future<GoalModel?> getActive();
   Future<GoalModel> create(GoalModel goal);

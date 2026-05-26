@@ -16,21 +16,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    context.read<AppController>().login(
-          _nameController.text.trim(),
-          _emailController.text.trim(),
-        );
+    final appController = context.read<AppController>();
+    setState(() => _isSubmitting = true);
+    final error = await appController.register(
+      _nameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -57,7 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Name is required.';
+                    return appController.t('fieldRequired');
                   }
                   return null;
                 },
@@ -74,10 +88,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Email is required.';
+                    return appController.t('fieldRequired');
                   }
                   if (!value.contains('@')) {
-                    return 'Enter a valid email.';
+                    return appController.t('invalidEmail');
                   }
                   return null;
                 },
@@ -93,8 +107,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 obscureText: true,
                 validator: (value) {
-                  if (value == null || value.trim().length < 6) {
-                    return 'Password must be 6+ characters.';
+                  final password = value?.trim() ?? '';
+                  if (password.isEmpty) {
+                    return appController.t('fieldRequired');
+                  }
+                  if (!appController.isStrongPassword(password)) {
+                    return appController.t('passwordRequirements');
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmPasswordController,
+                decoration: InputDecoration(
+                  labelText: appController.t('confirmPassword'),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  final confirmPassword = value?.trim() ?? '';
+                  if (confirmPassword.isEmpty) {
+                    return appController.t('fieldRequired');
+                  }
+                  if (confirmPassword != _passwordController.text.trim()) {
+                    return appController.t('passwordsDoNotMatch');
                   }
                   return null;
                 },
@@ -102,7 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 24),
               PrimaryButton(
                 label: appController.t('register'),
-                onPressed: _submit,
+                onPressed: _isSubmitting ? null : _submit,
               ),
             ],
           ),

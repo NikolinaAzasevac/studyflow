@@ -48,4 +48,43 @@ class TaskModel {
       subtasks: subtasks ?? this.subtasks,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'goalId': goalId,
+      'title': title,
+      'notes': notes,
+      'dueDate': dueDate?.toIso8601String(),
+      'isDone': isDone,
+      'priority': priority.index,
+      'createdAt': createdAt.toIso8601String(),
+      'subtasks': subtasks.map((item) => item.toMap()).toList(),
+    };
+  }
+
+  static TaskModel fromMap(String id, Map<String, dynamic> map) {
+    return TaskModel(
+      id: id,
+      goalId: map['goalId'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      notes: map['notes'] as String? ?? '',
+      dueDate: map['dueDate'] == null
+          ? null
+          : DateTime.tryParse(map['dueDate'] as String? ?? ''),
+      isDone: map['isDone'] as bool? ?? false,
+      priority:
+          TaskPriority.values[(map['priority'] as int? ??
+                  TaskPriority.medium.index)
+              .clamp(0, TaskPriority.values.length - 1)],
+      createdAt:
+          DateTime.tryParse(map['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      subtasks: (map['subtasks'] as List<dynamic>? ?? [])
+          .map(
+            (item) =>
+                SubtaskModel.fromMap(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList(),
+    );
+  }
 }

@@ -1,13 +1,26 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
+import 'models/task_model.dart';
+import 'providers/admin_controller.dart';
 import 'providers/app_controller.dart';
 import 'providers/goal_controller.dart';
+import 'providers/notification_controller.dart';
 import 'providers/task_controller.dart';
-import 'repositories/mock_task_repository.dart';
-import 'repositories/mock_goal_repository.dart';
+import 'repositories/firebase_goal_repository.dart';
+import 'repositories/firebase_public_goal_repository.dart';
+import 'repositories/firebase_public_task_repository.dart';
+import 'repositories/firebase_task_repository.dart';
+import 'repositories/firebase_user_repository.dart';
 import 'repositories/goal_repository.dart';
+import 'repositories/hybrid_goal_repository.dart';
+import 'repositories/hybrid_task_repository.dart';
+import 'repositories/notification_repository.dart';
 import 'repositories/task_repository.dart';
+import 'repositories/user_repository.dart';
 import 'services/unsplash_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -15,16 +28,22 @@ import 'screens/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  final goalRepository = MockGoalRepository();
-  final goals = await goalRepository.fetchAll();
-  final taskRepository = MockTaskRepository();
-  taskRepository.seedForGoals(goals);
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
     StudyFlowApp(
-      taskRepository: taskRepository,
-      goalRepository: goalRepository,
+      firebaseTaskRepository: HybridTaskRepository(
+        FirebaseTaskRepository(FirebaseFirestore.instance),
+        FirebasePublicTaskRepository(FirebaseFirestore.instance),
+      ),
+      firebaseGoalRepository: HybridGoalRepository(
+        FirebaseGoalRepository(FirebaseFirestore.instance),
+        FirebasePublicGoalRepository(FirebaseFirestore.instance),
+      ),
+      notificationRepository: NotificationRepository(
+        FirebaseFirestore.instance,
+      ),
+      userRepository: FirebaseUserRepository(FirebaseFirestore.instance),
     ),
   );
 }
@@ -32,12 +51,16 @@ Future<void> main() async {
 class StudyFlowApp extends StatefulWidget {
   const StudyFlowApp({
     super.key,
-    required this.taskRepository,
-    required this.goalRepository,
+    required this.firebaseTaskRepository,
+    required this.firebaseGoalRepository,
+    required this.notificationRepository,
+    required this.userRepository,
   });
 
-  final TaskRepository taskRepository;
-  final GoalRepository goalRepository;
+  final TaskRepository firebaseTaskRepository;
+  final GoalRepository firebaseGoalRepository;
+  final NotificationRepository notificationRepository;
+  final UserRepository userRepository;
 
   @override
   State<StudyFlowApp> createState() => _StudyFlowAppState();
@@ -45,13 +68,18 @@ class StudyFlowApp extends StatefulWidget {
 
 class _StudyFlowAppState extends State<StudyFlowApp> {
   late final AppController _appController;
+  late final NotificationController _notificationController;
   bool _ready = false;
 
   @override
   void initState() {
     super.initState();
     _appController = AppController();
-    _appController.loadPreferences().then((_) {
+    _notificationController = NotificationController(
+      widget.notificationRepository,
+    );
+    _appController.notificationController = _notificationController;
+    _appController.initialize().then((_) {
       if (!mounted) return;
       setState(() => _ready = true);
     });
@@ -76,29 +104,56 @@ class _StudyFlowAppState extends State<StudyFlowApp> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData(useMaterial3: true, colorScheme: colorScheme),
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: _appController),
-        ChangeNotifierProvider(
+        ChangeNotifierProxyProvider<AppController, TaskController>(
           create: (_) => TaskController(
-            widget.taskRepository,
-            onTaskCompleted: _appController.recordActivity,
+            widget.firebaseTaskRepository,
+            onTaskCompleted: (TaskModel? task, DateTime date) =>
+                _appController.recordActivity(date, task: task),
           ),
+          update: (_, appController, controller) {
+            controller?.setUserId(
+              appController.isLoggedIn ? appController.user?.id : null,
+            );
+            return controller!;
+          },
+        ),
+        ChangeNotifierProxyProvider<AppController, GoalController>(
+          create: (_) => GoalController(
+            widget.firebaseGoalRepository,
+            UnsplashService(),
+            onGoalAdded: _appController.addGoalNotification,
+          ),
+          update: (_, appController, controller) {
+            controller?.setUserId(
+              appController.isLoggedIn ? appController.user?.id : null,
+            );
+            return controller!;
+          },
+        ),
+        ChangeNotifierProxyProvider<AppController, NotificationController>(
+          create: (_) => _notificationController,
+          update: (_, appController, controller) {
+            controller?.setUserId(
+              appController.isLoggedIn ? appController.user?.id : null,
+            );
+            return controller!;
+          },
         ),
         ChangeNotifierProvider(
-          create: (_) => GoalController(widget.goalRepository, UnsplashService()),
+          create: (_) => AdminController(widget.userRepository),
         ),
       ],
       child: Consumer<AppController>(
         builder: (context, appController, _) {
           return MaterialApp(
-            title: appController.t('appTitle'),
+            title: 'StudyFlow',
             debugShowCheckedModeBanner: false,
             locale: Locale(appController.localeCode),
             themeMode: appController.themeMode,
@@ -127,9 +182,9 @@ class _StudyFlowAppState extends State<StudyFlowApp> {
               ),
             ),
             home: appController.hasSeenOnboarding
-                ? (appController.isAuthenticated
-                    ? const AppShell()
-                    : const LoginScreen())
+                ? (appController.isLoggedIn
+                      ? const AppShell()
+                      : const LoginScreen())
                 : const OnboardingScreen(),
           );
         },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/app_controller.dart';
+import '../app_shell.dart';
 import '../../widgets/primary_button.dart';
 import 'register_screen.dart';
 
@@ -16,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -24,12 +26,72 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final email = _emailController.text.trim();
-    final name = email.split('@').first;
+    final appController = context.read<AppController>();
+    setState(() => _isSubmitting = true);
+    final error = await appController.signIn(
+      email,
+      _passwordController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (error != null) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AppShell()),
+      (route) => false,
+    );
+  }
 
-    context.read<AppController>().login(name, email);
+  Future<void> _forgotPassword() async {
+    final appController = context.read<AppController>();
+    final controller = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appController.t('resetPassword')),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(labelText: appController.t('email')),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(appController.t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(appController.t('sendResetLink')),
+          ),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty) return;
+    final error = await appController.sendPasswordReset(email);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(appController.t('resetEmailSent')),
+          showCloseIcon: true,
+        ),
+      );
+    }
   }
 
   @override
@@ -47,6 +109,23 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (appController.authStatusMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        appController.authStatusMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Center(
                     child: Image.asset(
                       'assets/studyflowLogo.png',
@@ -73,10 +152,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Email is required.';
+                        return appController.t('fieldRequired');
                       }
                       if (!value.contains('@')) {
-                        return 'Enter a valid email.';
+                        return appController.t('invalidEmail');
                       }
                       return null;
                     },
@@ -92,8 +171,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     obscureText: true,
                     validator: (value) {
-                      if (value == null || value.trim().length < 6) {
-                        return 'Password must be 6+ characters.';
+                      if (value == null || value.trim().isEmpty) {
+                        return appController.t('fieldRequired');
                       }
                       return null;
                     },
@@ -101,9 +180,27 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
                   PrimaryButton(
                     label: appController.t('login'),
-                    onPressed: _submit,
+                    onPressed: _isSubmitting ? null : _submit,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _forgotPassword,
+                    child: Text(appController.t('forgotPassword')),
                   ),
                   const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () async {
+                      await appController.loginGuest();
+                      if (mounted) {
+                        // ignore: use_build_context_synchronously
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const AppShell()),
+                        );
+                      }
+                    },
+                    child: Text(appController.t('continueGuest')),
+                  ),
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(

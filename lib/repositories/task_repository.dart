@@ -1,6 +1,8 @@
 import '../models/task_model.dart';
 
 abstract class TaskRepository {
+  void setUserId(String? userId);
+  Stream<List<TaskModel>> watchAll();
   Future<List<TaskModel>> fetchAll();
   Future<List<TaskModel>> fetchByGoalId(String goalId);
   Future<TaskModel?> getById(String id);

@@ -70,7 +70,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     decoration: BoxDecoration(
                       color: i == _index
                           ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                          : Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -98,13 +100,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           appController.completeOnboarding();
-                          appController.loginGuest();
+                          await appController.loginGuest();
+                          if (!context.mounted) return;
                           Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const AppShell(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const AppShell()),
                           );
                         },
                         child: Text(appController.t('continueGuest')),
@@ -153,10 +154,14 @@ class _OnboardingPage extends StatelessWidget {
           height: 120,
           width: 120,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
+          child: Icon(
+            icon,
+            size: 56,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
         const SizedBox(height: 24),
         Text(

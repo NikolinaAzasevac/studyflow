@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1023070192441",
+    "project_id": "studyflow-mit-2026-df982",
+    "storage_bucket": "studyflow-mit-2026-df982.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1023070192441:android:0bc42aca1284c46f549ee8",
+        "android_client_info": {
+          "package_name": "com.example.studyflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-61cRVFHpguv5xW8PKts0FI_EbN4Glzk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
