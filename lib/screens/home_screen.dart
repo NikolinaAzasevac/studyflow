@@ -220,38 +220,34 @@ class HomeScreen extends StatelessWidget {
                 ),
               )
             else
-              SizedBox(
-                height: 200,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: goalController.goals.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final goal = goalController.goals[index];
-                    final goalTasks = taskController.tasksForGoal(goal.id);
-                    final completed = goalTasks
-                        .where((task) => task.isDone)
-                        .length;
-                    return SizedBox(
-                      width: 190,
-                      child: GoalListCard(
-                        goal: goal,
-                        progress: goalTasks.isEmpty
-                            ? 0
-                            : completed / goalTasks.length,
-                        progressLabel:
-                            '$completed/${goalTasks.length} ${appController.t('completed')}',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => GoalDetailsScreen(goal: goal),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.92,
                 ),
+                itemCount: goalController.goals.length,
+                itemBuilder: (context, index) {
+                  final goal = goalController.goals[index];
+                  final goalTasks = taskController.tasksForGoal(goal.id);
+                  final completed = goalTasks.where((task) => task.isDone).length;
+                  return GoalListCard(
+                    goal: goal,
+                    progress: goalTasks.isEmpty ? 0 : completed / goalTasks.length,
+                    progressLabel:
+                        '$completed/${goalTasks.length} ${appController.t('completed')}',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GoalDetailsScreen(goal: goal),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
           ],
         ),

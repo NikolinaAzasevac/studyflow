@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -22,6 +23,7 @@ class TaskController extends ChangeNotifier {
   StreamSubscription<List<TaskModel>>? _sub;
   bool get _usingStream => _sub != null;
   bool get _canWrite => _userId != null && _userId != 'guest';
+  bool get canWrite => _canWrite;
 
   List<TaskModel> get tasks => _tasks;
   bool get isLoading => _isLoading;
@@ -31,6 +33,15 @@ class TaskController extends ChangeNotifier {
       if (task.id == id) return task;
     }
     return null;
+  }
+
+  void _ensureWritable() {
+    if (_userId == null) {
+      throw StateError('User session is not ready yet.');
+    }
+    if (_userId == 'guest') {
+      throw StateError('Guest mode cannot modify tasks.');
+    }
   }
 
   Future<void> setUserId(String? userId) async {
@@ -46,6 +57,9 @@ class TaskController extends ChangeNotifier {
     _sub = _repository.watchAll().listen((items) {
       _tasks = items;
       notifyListeners();
+    }, onError: (_) {
+      _tasks = [];
+      notifyListeners();
     });
     await loadTasks();
   }
@@ -58,9 +72,14 @@ class TaskController extends ChangeNotifier {
     }
     _isLoading = true;
     notifyListeners();
-    _tasks = await _repository.fetchAll();
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _tasks = await _repository.fetchAll();
+    } on FirebaseException {
+      _tasks = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   List<TaskModel> tasksForGoal(String goalId) {
@@ -78,7 +97,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> addTask(TaskModel task) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final created = await _repository.create(
       task.id.isEmpty ? task.copyWith(id: _uuid.v4()) : task,
     );
@@ -88,7 +107,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> updateTask(TaskModel task) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     await _repository.update(task);
     if (_usingStream) return;
     _tasks = _tasks.map((item) => item.id == task.id ? task : item).toList();
@@ -96,7 +115,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> toggleTask(TaskModel task) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final toggledDone = !task.isDone;
     final updatedSubtasks = task.subtasks
         .map((subtask) => subtask.copyWith(isDone: toggledDone))
@@ -118,7 +137,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<TaskModel?> deleteTask(String id) async {
-    if (!_canWrite) return null;
+    _ensureWritable();
     TaskModel? toRemove;
     for (final item in _tasks) {
       if (item.id == id) {
@@ -135,7 +154,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> restoreTask(TaskModel task) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     await _repository.restore(task);
     if (_usingStream) return;
     _tasks = [..._tasks.where((item) => item.id != task.id), task];
@@ -143,7 +162,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<List<TaskModel>> deleteTasksForGoal(String goalId) async {
-    if (!_canWrite) return [];
+    _ensureWritable();
     final removed = _tasks.where((task) => task.goalId == goalId).toList();
     await _repository.deleteByGoalId(goalId);
     if (!_usingStream) {
@@ -154,7 +173,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> restoreTasks(List<TaskModel> tasks) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     for (final task in tasks) {
       await _repository.restore(task);
     }
@@ -168,7 +187,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> clearAll() async {
-    if (!_canWrite) return;
+    _ensureWritable();
     await _repository.clearAll();
     if (_usingStream) return;
     _tasks = [];
@@ -176,7 +195,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> addSubtask(String taskId, String title) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final task = _findTask(taskId);
     if (task == null) return;
     final updated = task.copyWith(
@@ -193,7 +212,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> toggleSubtask(String taskId, String subtaskId) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final task = _findTask(taskId);
     if (task == null) return;
     final updatedSubtasks = task.subtasks.map((subtask) {
@@ -220,7 +239,7 @@ class TaskController extends ChangeNotifier {
     String subtaskId,
     String title,
   ) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) return;
     final task = _findTask(taskId);
@@ -237,7 +256,7 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> deleteSubtask(String taskId, String subtaskId) async {
-    if (!_canWrite) return;
+    _ensureWritable();
     final task = _findTask(taskId);
     if (task == null) return;
     final updatedSubtasks = task.subtasks

@@ -32,11 +32,15 @@ class NotificationController extends ChangeNotifier {
       return;
     }
     if (_isGuest) {
+      _notifications = [];
       notifyListeners();
       return;
     }
     _sub = _repository.watchAll().listen((items) {
       _notifications = items;
+      notifyListeners();
+    }, onError: (_) {
+      _notifications = [];
       notifyListeners();
     });
   }

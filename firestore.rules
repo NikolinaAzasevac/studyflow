@@ -19,6 +19,7 @@ service cloud.firestore {
 
     function currentUserEnabled() {
       return signedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled != true;
     }
 
@@ -28,7 +29,7 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return currentUserEnabled() && request.auth.uid == userId;
+      return ownerMatches(userId);
     }
 
     function isValidRole(role) {
@@ -134,8 +135,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if (ownerMatches(userId) || isAdmin()) &&
-          isValidUserData(resource.data);
+      allow read: if ownerMatches(userId) || isAdmin();
 
       allow create: if (ownerMatches(userId) &&
               isValidUserData(request.resource.data) &&
@@ -153,24 +153,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /goals/{goalId} {
-        allow read: if (isOwner(userId) || isAdmin()) &&
-            isValidGoalData(resource.data);
+        allow read: if isOwner(userId) || isAdmin();
         allow create, update: if (isOwner(userId) || isAdmin()) &&
             isValidGoalData(request.resource.data);
         allow delete: if isOwner(userId) || isAdmin();
       }
 
       match /tasks/{taskId} {
-        allow read: if (isOwner(userId) || isAdmin()) &&
-            isValidTaskData(resource.data);
+        allow read: if isOwner(userId) || isAdmin();
         allow create, update: if (isOwner(userId) || isAdmin()) &&
             isValidTaskData(request.resource.data);
         allow delete: if isOwner(userId) || isAdmin();
       }
 
       match /notifications/{notificationId} {
-        allow read: if (isOwner(userId) || isAdmin()) &&
-            isValidNotificationData(resource.data, userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create, update: if (isOwner(userId) || isAdmin()) &&
             isValidNotificationData(request.resource.data, userId);
         allow delete: if isOwner(userId) || isAdmin();
@@ -178,14 +175,14 @@ service cloud.firestore {
     }
 
     match /public_goals/{goalId} {
-      allow read: if isValidGoalData(resource.data);
+      allow read: if true;
       allow create, update: if isAdmin() &&
           isValidGoalData(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /public_tasks/{taskId} {
-      allow read: if isValidTaskData(resource.data);
+      allow read: if true;
       allow create, update: if isAdmin() &&
           isValidTaskData(request.resource.data);
       allow delete: if isAdmin();

@@ -29,6 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
     final appController = context.read<AppController>();
     setState(() => _isSubmitting = true);
@@ -45,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    Navigator.of(context).pop();
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -141,7 +142,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 24),
               PrimaryButton(
                 label: appController.t('register'),
-                onPressed: _isSubmitting ? null : _submit,
+                onPressed:
+                    _isSubmitting || appController.isAuthResolving
+                        ? null
+                        : _submit,
               ),
             ],
           ),

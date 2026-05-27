@@ -152,6 +152,19 @@ class _StudyFlowAppState extends State<StudyFlowApp> {
       ],
       child: Consumer<AppController>(
         builder: (context, appController, _) {
+          Widget home;
+          if (!appController.hasSeenOnboarding) {
+            home = const OnboardingScreen();
+          } else if (appController.isAuthResolving) {
+            home = const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          } else if (appController.isSessionReady) {
+            home = const AppShell();
+          } else {
+            home = const LoginScreen();
+          }
+
           return MaterialApp(
             title: 'StudyFlow',
             debugShowCheckedModeBanner: false,
@@ -181,11 +194,7 @@ class _StudyFlowAppState extends State<StudyFlowApp> {
                 fillColor: Color(0xFF1C1C22),
               ),
             ),
-            home: appController.hasSeenOnboarding
-                ? (appController.isLoggedIn
-                      ? const AppShell()
-                      : const LoginScreen())
-                : const OnboardingScreen(),
+            home: home,
           );
         },
       ),

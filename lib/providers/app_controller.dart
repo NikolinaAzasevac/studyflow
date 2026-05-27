@@ -18,6 +18,7 @@ class AppController extends ChangeNotifier {
   String _localeCode = 'en';
   bool _isAuthenticated = false;
   bool _isGuest = false;
+  bool _isAuthResolving = true;
   bool _hasSeenOnboarding = false;
   int _avatarColorIndex = 0;
   UserModel? _user;
@@ -38,6 +39,8 @@ class AppController extends ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   bool get isGuest => _isGuest;
   bool get isLoggedIn => _isAuthenticated || _isGuest;
+  bool get isAuthResolving => _isAuthResolving;
+  bool get isSessionReady => _isGuest || (_isAuthenticated && _user != null);
   bool get hasSeenOnboarding => _hasSeenOnboarding;
   Color get avatarColor {
     const palette = [
@@ -351,6 +354,7 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await loadPreferences();
     _authSub?.cancel();
+    _isAuthResolving = true;
     _authSub = _auth.authStateChanges().listen(_handleAuthChanged);
   }
 
@@ -369,7 +373,13 @@ class AppController extends ChangeNotifier {
       'activityDates_${scope ?? 'signed_out'}';
 
   Future<void> _loadActivityForScope(String? scope) async {
-    _activityDates = _prefs?.getStringList(_activityDatesKey(scope)) ?? [];
+    final stored = _prefs?.getStringList(_activityDatesKey(scope)) ?? [];
+    _activityDates = stored
+        .map(_normalizeActivityDateString)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
   }
 
   Future<void> _persistActivityForCurrentScope() async {
@@ -377,10 +387,45 @@ class AppController extends ChangeNotifier {
     await _prefs?.setStringList(_activityDatesKey(scope), _activityDates);
   }
 
+  String _formatActivityDate(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final month = normalized.month.toString().padLeft(2, '0');
+    final day = normalized.day.toString().padLeft(2, '0');
+    return '${normalized.year}-$month-$day';
+  }
+
+  String? _normalizeActivityDateString(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      return _formatActivityDate(DateTime.parse(trimmed));
+    } on FormatException {
+      final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})$').firstMatch(trimmed);
+      if (match == null) return null;
+      final year = int.tryParse(match.group(1)!);
+      final month = int.tryParse(match.group(2)!);
+      final day = int.tryParse(match.group(3)!);
+      if (year == null || month == null || day == null) return null;
+      try {
+        return _formatActivityDate(DateTime(year, month, day));
+      } on ArgumentError {
+        return null;
+      }
+    }
+  }
+
+  DateTime? _parseActivityDate(String value) {
+    final normalized = _normalizeActivityDateString(value);
+    if (normalized == null) return null;
+    return DateTime.parse(normalized);
+  }
+
   void recordActivity(DateTime date, {TaskModel? task}) {
-    final dateStr = '${date.year}-${date.month}-${date.day}';
+    final dateStr = _formatActivityDate(date);
     if (!_activityDates.contains(dateStr)) {
       _activityDates.add(dateStr);
+      _activityDates.sort();
       _persistActivityForCurrentScope();
       notifyListeners();
 
@@ -410,7 +455,10 @@ class AppController extends ChangeNotifier {
 
   int _calculateCurrentStreak() {
     if (_activityDates.isEmpty) return 0;
-    final sortedDates = _activityDates.map((d) => DateTime.parse(d)).toList()
+    final sortedDates = _activityDates
+        .map(_parseActivityDate)
+        .whereType<DateTime>()
+        .toList()
       ..sort((a, b) => b.compareTo(a)); // newest first
 
     int streak = 0;
@@ -463,11 +511,31 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _waitForAuthenticatedSession({
+    required String expectedUserId,
+  }) async {
+    const timeout = Duration(seconds: 5);
+    const pause = Duration(milliseconds: 50);
+    final startedAt = DateTime.now();
+
+    while (true) {
+      if (_isAuthenticated && _user?.id == expectedUserId) {
+        return;
+      }
+      if (DateTime.now().difference(startedAt) >= timeout) {
+        throw StateError('User session is not ready yet.');
+      }
+      await Future<void>.delayed(pause);
+    }
+  }
+
   Future<void> _handleAuthChanged(User? firebaseUser) async {
     _userDocSub?.cancel();
+    _userDocSub = null;
     if (firebaseUser == null) {
       if (_isGuest) {
         await _loadActivityForScope('guest');
+        _isAuthResolving = false;
         notifyListeners();
         return;
       }
@@ -475,6 +543,7 @@ class AppController extends ChangeNotifier {
       _role = 'guest';
       _user = null;
       await _loadActivityForScope(null);
+      _isAuthResolving = false;
       notifyListeners();
       return;
     }
@@ -482,39 +551,53 @@ class AppController extends ChangeNotifier {
     _isGuest = false;
     final docRef = _db.collection('users').doc(firebaseUser.uid);
     final email = firebaseUser.email ?? '';
-    final snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      final name =
-          firebaseUser.displayName ??
-          (email.isNotEmpty ? email.split('@').first : 'Guest');
-      final model = UserModel(
-        id: firebaseUser.uid,
-        name: name,
-        email: email,
-        role: 'user',
-      );
-      await docRef.set(model.toMap());
-      _user = model;
-      _role = model.role;
-      await _loadActivityForScope(model.id);
-    } else {
-      final data = snapshot.data() as Map<String, dynamic>;
-      final model = UserModel.fromMap(firebaseUser.uid, data);
-      if (model.disabled) {
-        _authStatusMessage = t('disabledAccount');
-        _isAuthenticated = false;
-        _role = 'guest';
-        _user = null;
-        await _auth.signOut();
-        notifyListeners();
-        return;
+    final fallbackName =
+        firebaseUser.displayName ??
+        (email.isNotEmpty ? email.split('@').first : 'Guest');
+    final fallbackModel = UserModel(
+      id: firebaseUser.uid,
+      name: fallbackName,
+      email: email,
+      role: 'user',
+      disabled: false,
+    );
+    try {
+      final snapshot = await docRef.get();
+      if (!snapshot.exists) {
+        await docRef.set(fallbackModel.toMap());
+        _user = fallbackModel;
+        _role = fallbackModel.role;
+        await _loadActivityForScope(fallbackModel.id);
+      } else {
+        final data = snapshot.data() as Map<String, dynamic>;
+        final model = UserModel.fromMap(firebaseUser.uid, data);
+        if (model.disabled) {
+          _authStatusMessage = t('disabledAccount');
+          _isAuthenticated = false;
+          _role = 'guest';
+          _user = null;
+          _isAuthResolving = false;
+          await _auth.signOut();
+          notifyListeners();
+          return;
+        }
+        _user = model;
+        _role = model.role;
+        await _loadActivityForScope(model.id);
       }
-      _user = model;
-      _role = model.role;
-      await _loadActivityForScope(model.id);
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        _authStatusMessage = 'Firestore permissions are blocking your data.';
+        _user = fallbackModel;
+        _role = fallbackModel.role;
+        await _loadActivityForScope(fallbackModel.id);
+      } else {
+        rethrow;
+      }
     }
     _isAuthenticated = true;
     _authStatusMessage = null;
+    _isAuthResolving = false;
     notifyListeners();
 
     _userDocSub = docRef.snapshots().listen((doc) {
@@ -539,7 +622,9 @@ class AppController extends ChangeNotifier {
 
   Future<String?> signIn(String email, String password) async {
     try {
+      _isAuthResolving = true;
       _authStatusMessage = null;
+      notifyListeners();
       final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -553,14 +638,24 @@ class AppController extends ChangeNotifier {
         if (user.disabled) {
           await _auth.signOut();
           _authStatusMessage = t('disabledAccount');
+          _isAuthResolving = false;
           notifyListeners();
           return _authStatusMessage;
         }
       }
+      await _waitForAuthenticatedSession(expectedUserId: credential.user!.uid);
       return null;
     } on FirebaseAuthException catch (e) {
+      _isAuthResolving = false;
+      notifyListeners();
       return _mapAuthError(e);
+    } on StateError catch (e) {
+      _isAuthResolving = false;
+      notifyListeners();
+      return e.message;
     } catch (_) {
+      _isAuthResolving = false;
+      notifyListeners();
       return t('authFailed');
     }
   }
@@ -570,6 +665,9 @@ class AppController extends ChangeNotifier {
       return t('passwordRequirements');
     }
     try {
+      _isAuthResolving = true;
+      _authStatusMessage = null;
+      notifyListeners();
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -583,10 +681,21 @@ class AppController extends ChangeNotifier {
       );
       await _db.collection('users').doc(model.id).set(model.toMap());
       await credential.user!.updateDisplayName(name);
+      _user = model;
+      _role = model.role;
+      await _waitForAuthenticatedSession(expectedUserId: credential.user!.uid);
       return null;
     } on FirebaseAuthException catch (e) {
+      _isAuthResolving = false;
+      notifyListeners();
       return _mapAuthError(e);
+    } on StateError catch (e) {
+      _isAuthResolving = false;
+      notifyListeners();
+      return e.message;
     } catch (_) {
+      _isAuthResolving = false;
+      notifyListeners();
       return t('authFailed');
     }
   }
@@ -603,6 +712,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> loginGuest() async {
+    _isAuthResolving = true;
+    notifyListeners();
     await _userDocSub?.cancel();
     await _auth.signOut();
     _isGuest = true;
@@ -618,6 +729,7 @@ class AppController extends ChangeNotifier {
       disabled: false,
     );
     await _loadActivityForScope('guest');
+    _isAuthResolving = false;
     notifyListeners();
   }
 
@@ -685,6 +797,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _isAuthResolving = true;
+    notifyListeners();
     _isGuest = false;
     _currentIndex = 0;
     await _userDocSub?.cancel();
@@ -735,7 +849,8 @@ class AppController extends ChangeNotifier {
 
   int streakDays() {
     final uniqueDays = _activityDates
-        .map(DateTime.parse)
+        .map(_parseActivityDate)
+        .whereType<DateTime>()
         .map((d) => DateTime(d.year, d.month, d.day))
         .toSet();
     if (uniqueDays.isEmpty) return 0;
@@ -762,7 +877,8 @@ class AppController extends ChangeNotifier {
     int thisWeek = 0;
     int lastWeek = 0;
     for (final dateStr in _activityDates) {
-      final date = DateTime.parse(dateStr);
+      final date = _parseActivityDate(dateStr);
+      if (date == null) continue;
       if (!date.isBefore(startOfWeek)) {
         thisWeek += 1;
       } else if (!date.isBefore(startOfLastWeek) &&
@@ -782,7 +898,8 @@ class AppController extends ChangeNotifier {
     ).subtract(Duration(days: now.weekday - 1));
     final counts = List<int>.filled(7, 0);
     for (final dateStr in _activityDates) {
-      final date = DateTime.parse(dateStr);
+      final date = _parseActivityDate(dateStr);
+      if (date == null) continue;
       final normalized = DateTime(date.year, date.month, date.day);
       final index = normalized.difference(startOfWeek).inDays;
       if (index >= 0 && index < 7) counts[index] += 1;

@@ -26,15 +26,18 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   TaskPriority _priority = TaskPriority.medium;
   bool _isSubmitting = false;
 
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(message), showCloseIcon: true));
+  }
+
   void _showSaveError(AppController appController, Object error) {
-    final reason = error.toString();
-    final template = 'Save failed: {reason}';
-    final message = template.contains('{reason}')
-        ? template.replaceAll('{reason}', reason)
-        : 'Save failed. Check your connection or permissions. ($reason)';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final reason = error.toString().replaceFirst('Bad state: ', '');
+    final message = appController.formatMessage('saveFailedWithReason', {
+      'reason': reason,
+    });
+    _showMessage(message);
   }
 
   @override
@@ -85,9 +88,7 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     }
     final goalId = _goalId;
     if (goalId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Select a goal first.')));
+      _showMessage('Select a goal first.');
       return;
     }
 
@@ -104,6 +105,10 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     );
 
     final controller = context.read<TaskController>();
+    if (!controller.canWrite) {
+      _showMessage('Your session is still loading. Try again in a moment.');
+      return;
+    }
     setState(() => _isSubmitting = true);
     if (widget.task == null) {
       try {
@@ -125,7 +130,10 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
       }
     }
 
+    await controller.loadTasks();
+
     if (!mounted) return;
+    _showMessage(widget.task == null ? 'Task saved.' : 'Task updated.');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).maybePop();

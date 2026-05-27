@@ -25,15 +25,18 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
   String? _selectedCoverUrl;
   bool _isSubmitting = false;
 
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(message), showCloseIcon: true));
+  }
+
   void _showSaveError(AppController appController, Object error) {
-    final reason = error.toString();
-    final template = 'Save failed: {reason}';
-    final message = template.contains('{reason}')
-        ? template.replaceAll('{reason}', reason)
-        : 'Save failed. Check your connection or permissions. ($reason)';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final reason = error.toString().replaceFirst('Bad state: ', '');
+    final message = appController.formatMessage('saveFailedWithReason', {
+      'reason': reason,
+    });
+    _showMessage(message);
   }
 
   @override
@@ -81,12 +84,14 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
       return;
     }
     if (_targetDate == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Pick a date first.')));
+      _showMessage('Pick a date first.');
       return;
     }
     final goalController = context.read<GoalController>();
+    if (!goalController.canWrite) {
+      _showMessage('Your session is still loading. Try again in a moment.');
+      return;
+    }
     setState(() => _isSubmitting = true);
 
     final goal = GoalModel(
@@ -118,7 +123,10 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
       }
     }
 
+    await goalController.loadGoals();
+
     if (!mounted) return;
+    _showMessage(widget.goal == null ? 'Goal saved.' : 'Goal updated.');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).maybePop();
@@ -218,6 +226,38 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
+            Text(
+              'Cover image is optional. You can save the goal without it.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            if (_selectedCoverUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  height: 160,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(_selectedCoverUrl!, fit: BoxFit.cover),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: FilledButton.tonalIcon(
+                          onPressed: () {
+                            setState(() => _selectedCoverUrl = null);
+                          },
+                          icon: const Icon(Icons.close),
+                          label: const Text('Remove'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               children: [
                 Expanded(
@@ -280,7 +320,9 @@ class _AddEditGoalScreenState extends State<AddEditGoalScreen> {
                   ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text('Search Unsplash to pick a cover image.'),
+                child: Text(
+                  'Search Unsplash if you want a cover image, or skip this step and save the goal.',
+                ),
               )
             else
               GridView.builder(

@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/app_controller.dart';
-import '../auth/login_screen.dart';
-import '../app_shell.dart';
-
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -87,11 +84,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: FilledButton(
                         onPressed: () {
                           appController.completeOnboarding();
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          );
                         },
                         child: Text(appController.t('getStarted')),
                       ),
@@ -103,10 +95,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         onPressed: () async {
                           appController.completeOnboarding();
                           await appController.loginGuest();
-                          if (!context.mounted) return;
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const AppShell()),
-                          );
                         },
                         child: Text(appController.t('continueGuest')),
                       ),

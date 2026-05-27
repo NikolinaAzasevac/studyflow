@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/app_controller.dart';
-import '../app_shell.dart';
 import '../../widgets/primary_button.dart';
 import 'register_screen.dart';
 
@@ -27,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
     final email = _emailController.text.trim();
     final appController = context.read<AppController>();
@@ -44,10 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AppShell()),
-      (route) => false,
-    );
   }
 
   Future<void> _forgotPassword() async {
@@ -180,7 +176,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
                   PrimaryButton(
                     label: appController.t('login'),
-                    onPressed: _isSubmitting ? null : _submit,
+                    onPressed:
+                        _isSubmitting || appController.isAuthResolving
+                            ? null
+                            : _submit,
                   ),
                   const SizedBox(height: 8),
                   TextButton(
@@ -191,12 +190,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextButton(
                     onPressed: () async {
                       await appController.loginGuest();
-                      if (mounted) {
-                        // ignore: use_build_context_synchronously
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const AppShell()),
-                        );
-                      }
                     },
                     child: Text(appController.t('continueGuest')),
                   ),
